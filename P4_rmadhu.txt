@@ -1,0 +1,949 @@
+/*
+* Madhu Ratnakar
+* 10/2/2020
+* Video Game Design Project 4: Doodle Pac Jump
+* Welcome to the Pineapple game where Mr.Pineapple has to
+* rescue his friends, Water Melons, from the bad guys, Fruit Flies.
+* Animations:
+*   1) Title Screen:
+*       - Pineapple eyes blinking
+*       - pineapple and fly moving around in circle
+*   2) Game Screen
+*       - Clouds moving slowly in background
+*       - Boat moving faster to show depth
+*       - Pineapple changes colors when enchanted (when watermelon is collected) for 8 secs
+*       - Watermelons flickering
+*       - Platforms moving down at constant speed
+*       - Player jumping and moving/gravity (physics concepts) along with game coordinates
+*       - FSM for flies: wander, chase, and flee
+*       - Flies appear on the screen 10 seconds after the game starts to give player headstart
+*   3) Game Over Screen
+*       - Win Screen: Pineapple moving in circles
+*       - Lose Screen: Flies moving in circles
+*/
+
+// radian mode
+angleMode = "radians";
+
+// platform object
+var platformObj = function(x, y) {
+    this.x = x;
+    this.y = y;
+};
+
+// game object 
+var objectObj = function(x, y) {
+    this.x = x;
+    this.y = y;
+    this.position = new PVector(x,y);
+};
+
+// watermelon object
+var melonObj = function(x, y) {
+    this.x = x;
+    this.y = y;
+    this.angle = 0;
+    this.w = 20;
+    this.wDir = -1;
+    this.collected = 0;
+    this.count = 0;
+    this.speed = 3;
+};
+
+// cloud object
+var cloudObj = function(x,y) {
+    this.x = x;
+    this.y = y;
+};
+
+// boat object
+var boatObj = function(x,y) {
+    this.x = x;
+    this.y = y;
+};
+
+// pineapple object
+var playerObj = function(x, y) {
+    this.position = new PVector(x, y);
+    this.velocity = new PVector(0, 0);
+    this.acceleration = new PVector(0, 0);
+    this.force = new PVector(0, 0);
+    this.currFrame = frameCount;
+    this.jump = 0;
+    this.walkForward = 0;
+    this.walkBackward = 0;
+    this.enchanted = 0;
+};
+
+// game title screen/ game over fruitfly object decalaration
+var dummyfly1Obj = function(x, y, n) {
+    this.x = x;
+    this.y = y;
+    this.speed = 1;
+    this.name = n;
+    this.direction = 0;
+};
+
+var dummyfly2Obj = function(x, y, n) {
+    this.x = x;
+    this.y = y;
+    this.speed = 1;
+    this.name = n;
+    this.direction = 0;
+};
+
+var dummyPlayerObj = function(x, y, s) {
+    this.x = x;
+    this.y = y;
+    this.speed = s;
+};
+
+var stillPlayerObj = function(x, y, s) {
+    this.x = x;
+    this.y = y;
+    this.speed = s;
+};
+
+var wanderState = function() {
+    this.angle = 0;
+    this.wanderDist = 0;
+    this.step = new PVector(0,0);
+};
+
+var chaseState = function() {
+    this.step = new PVector(0,0);
+};
+
+// draw dummy fly on th starting scren
+dummyfly1Obj.prototype.draw = function(x,y) {
+    noStroke();
+    fill(0, 0, 0);
+    ellipse(this.x, this.y, 12, 12);
+    fill(99, 107, 107);
+    ellipse(this.x-8, this.y, 4, 4);
+    ellipse(this.x+8, this.y, 4, 4);
+
+    //change to frameCount/100 when angleMode is radians
+    var xCor = 100*cos(frameCount/100);
+    var yCor = 50*sin(frameCount/100);
+    this.x = x + xCor;
+    this.y = y + yCor;
+};
+
+// draw dummy fly on th starting scren
+dummyfly2Obj.prototype.draw = function(x,y) {
+    this.x = x;
+    this.y = y;
+    noStroke();
+    fill(0, 0, 0);
+    ellipse(this.x, this.y, 12, 12);
+    fill(178, 209, 209);
+    ellipse(this.x-8, this.y, 4, 4);
+    ellipse(this.x+8, this.y, 4, 4);
+};
+
+dummyPlayerObj.prototype.draw = function(x,y) {
+    noStroke();
+    fill(230, 213, 25);
+    ellipse(this.x, this.y, 18, 18);
+    strokeWeight(2);
+    stroke(13, 143, 22);
+    line(this.x, this.y-10, this.x, this.y-5);
+    line(this.x-5, this.y-10, this.x, this.y-5);
+    line(this.x+5, this.y-10, this.x, this.y-5);
+
+    //change to frameCount/100 when angleMode is radians
+    //only show the moving pine apple in start and
+    //when pineapple wins
+    var xCor = 100*cos(frameCount/100);
+    var yCor = 50*sin(frameCount/100);
+    this.x = x - xCor;
+    this.y = y - yCor;
+};
+
+stillPlayerObj.prototype.draw = function(x,y) {
+    this.x = x;
+    this.y = y;
+    noStroke();
+    fill(230, 213, 25);
+    ellipse(this.x, this.y, 18, 18);
+    strokeWeight(2);
+    stroke(13, 143, 22);
+    line(this.x, this.y-10, this.x, this.y-5);
+    line(this.x-5, this.y-10, this.x, this.y-5);
+    line(this.x+5, this.y-10, this.x, this.y-5);
+};
+
+// fly object
+var flyObj = function(x, y) {
+    this.position = new PVector(x, y);
+    this.state = [new wanderState(), new chaseState()];
+    this.currState = 0;
+};
+
+flyObj.prototype.changeState = function(x) {
+    this.currState = x;
+};
+
+// main game object / tile map creation
+var gameObj = function(x,y) {
+    this.tilemap = [
+    "          ",
+    "          ",
+    "w       w ",
+    "          ",
+    "  w       ",
+    "     w    ",
+    "       w  ",
+    "          ",
+    "    w     ",
+    "          ",
+    "          ",
+    "          ",
+    "     w    ",
+    "         w",
+    "  w       ",
+    " w    w   ",
+    "          ",
+    "       w  ",
+    "          ",
+    "          ",
+    "   w      ",
+    "          ",
+    "w         ",
+    "          ",
+    "      w   ",
+    "          ",
+    "         w",
+    " w        ",
+    "       w  ",
+    "  w       ",
+    "     w    ",
+    "          ",
+    "        w ",
+    "w         ",
+    "   w      ",
+    "       w  ",
+    "          ",
+    " w        ",
+    "    w     ",
+    "          ", //40 from the top
+    "          ",
+    "          ",
+    "w       w ",
+    "          ",
+    "  w       ",
+    "     w    ",
+    "       w  ",
+    "          ",
+    "    w     ",
+    "          ",
+    "          ",
+    "          ",
+    "     w    ",
+    "         w",
+    "  w       ",
+    " w    w   ",
+    "          ",
+    "       w  ",
+    "          ",
+    "          ",
+    "   w      ",
+    "          ",
+    "w         ",
+    "          ",
+    "      w   ",
+    "          ",
+    "         w",
+    " w        ",
+    "       w  ",
+    "  w       ",
+    "     w    ",
+    "          ",
+    "        w ",
+    "w         ",
+    "   w      ",
+    "       w  ",
+    "          ",
+    " w        ",
+    "    w     ",
+    "          ",];
+    this.gameOver = -1;
+    this.score = 0;
+    this.currFrame = 0;
+    this.xCor = 0;
+    this.yCor = -400;
+    this.data=[[]]; //holds platform data
+    this.barwidth=40;
+    this.barheight=10;
+    this.objects = [];
+    this.position = new PVector(x, y);
+};
+
+//
+//global variables
+//
+var keyDown=[6];
+
+var gravity = new PVector(0, 0.1);
+var fall = new PVector(0,1);
+var walkForce = new PVector(0.01, 0);
+var backForce = new PVector(-0.01, 0);
+var jumpForce = new PVector(0, -4);
+var stuckForce = new PVector(0, 0);
+var player = new playerObj(340, 710); //player object
+var gameOver = 0;
+var currentTimer = 0;
+var blink = 0;
+var start = 0;
+var playerwin = 0;
+var onPlatform = 0; //use this to check player is on platform or not (fall down if 0)
+var game = new gameObj(); //instantite the game
+var disposition = 0;
+
+//five main water melons needed for p4
+var melons = [new melonObj(0,0), new melonObj(0,0), new melonObj(0,0), new melonObj(0,0), new melonObj(0,0)];
+
+var clouds = [new cloudObj(45,45), new cloudObj(245,145), new cloudObj(10,200)];
+var boat = new boatObj(30,385); 
+var platform = new platformObj();
+
+//five main fruit fly enemies needed for p4
+var fruitfly1 = new flyObj();
+var fruitfly2 = new flyObj();
+var fruitfly3 = new flyObj();
+var fruitfly4 = new flyObj();
+var fruitfly5 = new flyObj();
+
+//for the start and end screens
+var dummyPlayer = new dummyPlayerObj(210, 210, 5);
+var stillPlayer = new stillPlayerObj(210, 210, 5);
+var dummyfly1 = new dummyfly1Obj();
+var dummyfly2 = new dummyfly2Obj();
+
+//fly draw
+flyObj.prototype.draw = function() {
+    pushMatrix();
+    translate(0,0);
+    rotate(this.angle);
+
+    noStroke();
+    fill(99, 107, 107);
+    ellipse(this.position.x, this.position.y, 20, 4);
+    fill(0, 0, 0);
+    ellipse(this.position.x, this.position.y, 12, 12);
+
+    popMatrix();
+};
+
+// fly wander state when player is not near 
+wanderState.prototype.execute = function(me) {
+    if (this.wanderDist <= 0) {
+        this.wanderDist = random(20, 400);
+        this.angle = random(0, 2*PI);
+        this.step.set(cos(this.angle), sin(this.angle));
+    }
+    this.wanderDist--;
+    me.position.add(this.step);
+    if (me.position.x > 380) {
+        //me.position.x = -15;
+        me.position.x--;
+    }
+    else if (me.position.x < 20) {
+        //me.position.x = 415;
+        me.position.x++;
+    }
+    if (me.position.y > 780) {
+        //me.position.y = -15;
+        me.position.y--;
+    }
+    else if (me.position.y < 20) {
+        //me.position.y = 415;
+        me.position.y++;
+    }
+
+    if (dist(me.position.x, me.position.y, player.position.x, player.position.y) < 150) {
+        me.changeState(1);
+    }
+};
+
+// fly chase state when player is near fly
+chaseState.prototype.execute = function(me) {
+    if (dist(player.position.x, player.position.y, me.position.x, me.position.y) > 5) {
+        this.step.set(player.position.x - me.position.x, player.position.y - me.position.y);
+        this.step.normalize();
+        //TODO adjust fly speed here, i think
+        this.step.mult(0.5);
+        //if player is not enchanted
+        //catch the player
+        //if player is enchanted
+        // go away from the player
+        if (player.enchanted === 0) {
+            me.position.add(this.step);
+        }
+        else if (player.enchanted === 1){
+            me.position.sub(this.step);
+        }
+    }
+
+    if (dist(me.position.x, me.position.y, player.position.x, player.position.y) > 150) {
+        me.changeState(0);
+    }
+    //if any fly touches the player, the game is over 
+    if (dist(me.position.x, me.position.y, player.position.x, player.position.y) < 10) {
+        gameOver = 1; //TODO disabled for the time being
+    }
+};
+
+// platform draw
+platformObj.prototype.draw = function(x,y) {
+    this.x = x;
+    this.y = y;
+    noStroke();
+    fill(176, 14, 235);
+    rect(this.x, this.y,40,10,5);
+    fill(100, 5, 140);
+    noStroke();
+    rect(this.x,this.y,40,5,5);
+    stroke(140, 89, 140);
+};
+
+// Drawing watermelon object
+melonObj.prototype.draw = function(x, y) {
+        this.x = x;
+        this.y = y;
+
+    //only draw the melons that are not collected
+    if (this.collected === 0) {
+        noStroke();
+        fill(13, 128, 5);
+        ellipse(this.x, this.y, this.w, 15);
+        fill(24, 247, 8);
+        ellipse(this.x, this.y, this.w, 9);
+        fill(13, 128, 5);
+        ellipse(this.x, this.y, this.w, 3);
+        this.w += this.wDir;
+        // used this to flicker watermelons back and forth
+        if ((this.w > 20) || (this.w < 18)) {
+            this.wDir = -this.wDir;
+        }
+    }
+
+};
+
+// Move up and dissappear when watermelon is collected
+melonObj.prototype.move = function() {
+
+    if (this.collected === 1) {
+        this.x += this.speed; //somehow x is not incrementing; but looping OK
+        this.y -= this.speed; //somehow y is not incrementing; but looping OK
+        this.count++;
+        //println(this.x + " " + this.y + " " + this.speed +" " + this.count);
+    }
+    if(this.count === 20) {
+        this.collected = 2;
+    }
+
+};
+
+// cloud draw
+cloudObj.prototype.draw = function() {
+    fill(255,255,255);
+    rect(this.x,this.y,100,20,10);
+    ellipse(this.x+15,this.y, 40,40);
+    ellipse(this.x+85,this.y, 40,40);
+    ellipse(this.x+50,this.y,60,60);
+};
+
+// cloud moving slowly in background
+cloudObj.prototype.move = function() {
+    this.x = this.x + 0.1;
+    if(this.x > 420) {
+        this.x = -120;
+    }
+};
+
+// boat draw
+boatObj.prototype.draw = function() {
+    noStroke();
+    fill(18, 39, 199);
+    arc(this.x,this.y,20,15,0,3.14);
+    fill(242, 244, 247);
+    triangle(this.x,this.y-10,this.x,this.y-5,this.x-5,this.y-7);
+    strokeWeight(2);
+    stroke(158, 102, 11);
+    line(this.x,this.y,this.x,this.y-10);
+};
+
+// boat moving background
+boatObj.prototype.move = function() {
+    this.x = this.x + 0.5;
+    if(this.x > 430) {
+        this.x = -30;
+    }
+};
+
+playerObj.prototype.applyForce = function(force) {
+    this.acceleration.add(force);
+};
+
+// pineapple check left when falling off platform
+playerObj.prototype.checkLeft = function() {
+    for(var i=0; i < game.objects.length; i++) {
+            var playerX = this.position.x;
+            var playerY = this.position.y;
+            var platformX = game.objects[i].position.x;
+            var platformY = game.objects[i].position.y;
+            //println(playerX + " " + platformX + " " + playerY + " " + platformY);
+            if ((playerX < platformX) && (platformY - playerY === 10 )) {
+                this.applyForce(fall);
+            }
+    }
+};
+
+// pineapple check right when falling off platform
+playerObj.prototype.checkRight = function() {
+    for(var i=0; i < game.objects.length; i++) {
+            var playerX = this.position.x;
+            var playerY = this.position.y;
+            var platformX = game.objects[i].position.x;
+            var platformY = game.objects[i].position.y;
+            //println(playerX + " " + platformX + " " + playerY + " " + platformY);
+            if ((playerX > platformX+40) && (platformY - playerY === 10 )) {
+                this.applyForce(fall);
+            }
+    }
+};
+
+// play check colllsion
+playerObj.prototype.checkCollision = function() {
+    //this function checks the player collision with water melons
+        //check for enchanted melons
+    //if bumped into anyone, get enchanted
+    for (var i=0; i < melons.length; i++){
+        if ((dist(this.position.x, this.position.y, melons[i].x, melons[i].y+disposition) < 10) && (melons[i].collected === 0))
+        {
+            currentTimer = second();
+            this.enchanted = 1;
+            melons[i].collected = 1;
+            //count the melons.. if 5 game ends and player wins
+            game.score++;
+        }
+    }
+    //if game score is 5 then game ends and player wins
+    if (game.score === 5) {
+        playerwin = 1;
+        gameOver = 1;
+    }
+
+        //check for enchanted timer
+    //the below temp is for seconds greater than 52
+    //current time is 53 + later time to check is +8 = 61
+    //seond will return 1.. so add 60 to that -ve temp
+    //and then compare
+    var temp = second() - currentTimer;
+    if (temp < 0) {
+        temp = temp+60;
+    }
+    //println(temp);
+    if ((temp === 8 ) && (this.enchanted === 1)) {
+        currentTimer = 0;
+        this.enchanted = 0;
+    }
+
+
+};
+
+// player lands on platforms when falling
+playerObj.prototype.checkFall = function() {
+        for(var i=0; i < game.objects.length; i++) {
+            var playerX = this.position.x;
+            var playerY = this.position.y;
+            var platformX = game.objects[i].position.x;
+            var platformY = game.objects[i].position.y;
+
+            if (playerX-10<platformX+40 && playerX+10>platformX && playerY+10>platformY && playerY+10<platformY+10) {
+                //println("here");
+                //this.position.x = platformX+20;
+                this.position.y = platformY-10;
+                this.velocity.y = 0;
+                this.jump = 0;
+                this.applyForce(stuckForce);
+                onPlatform = 1;
+            }
+
+        }
+};
+
+// physics funcitons for player object
+playerObj.prototype.update = function() {
+
+    this.acceleration.set(0, 0);
+    if (this.walkForward === 1) {
+        //this.applyForce(walkForce);
+        this.position.x++;
+        this.checkRight();
+    }
+    if (this.walkBackward === 1) {
+        //this.applyForce(backForce);
+        this.position.x--;
+        this.checkLeft();
+    }
+    if (this.jump === 2) {
+        this.applyForce(jumpForce);
+        this.jump = 1;
+    }
+    if (this.jump > 0) {
+        this.applyForce(gravity);
+    }
+    this.velocity.add(this.acceleration);
+    this.position.add(this.velocity);
+    this.acceleration.set(0, 0);
+
+    if (this.position.x > 400) {
+        this.position.x = 400;
+    }
+    else if (this.position.x < 0) {
+        this.position.x = 0;
+    }
+
+    //Added code below to this orig func
+    if (this.jump === 1) {
+        for(var i=0; i < game.objects.length; i++) {
+            var playerX = this.position.x;
+            var playerY = this.position.y;
+            var platformX = game.objects[i].position.x;
+            var platformY = game.objects[i].position.y;
+
+            if (playerX-10<platformX+40 && playerX+10>platformX && playerY+10>platformY && playerY+10<platformY+10) {
+                //println("here");
+                //this.position.x = platformX+20;
+                this.position.y = platformY-10;
+                this.velocity.y = 0;
+                this.jump = 0;
+                this.applyForce(stuckForce);
+                onPlatform = 1;
+            }
+
+        }
+    }
+    //check for player going off limits
+    //if so, game ends
+    if (this.position.y > 780) {
+        gameOver = 1;
+    }
+};
+
+// pineapple draw for enchanted and non-enchanted
+playerObj.prototype.draw = function() {
+
+    //draw the pineapple
+    //
+    //not enchanted player pineapple
+    if (this.enchanted === 0) {
+        pushMatrix();
+        translate(game.position.x, game.position.y);
+        noStroke();
+        fill(230, 213, 25);
+        ellipse(this.position.x, this.position.y, 18, 18);
+        strokeWeight(2);
+        stroke(13, 143, 22);
+        line(this.position.x, this.position.y-10, this.position.x, this.position.y-5);
+        line(this.position.x-5, this.position.y-10, this.position.x, this.position.y-5);
+        line(this.position.x+5, this.position.y-10, this.position.x, this.position.y-5);
+        popMatrix();
+        }
+        //draw the enchanted player pineapple
+        else if (this.enchanted === 1) {
+        pushMatrix();
+        translate(game.position.x, game.position.y);
+        noStroke();
+        fill(230, 25, 76);
+        ellipse(this.position.x, this.position.y, 18, 18);
+        strokeWeight(2);
+        stroke(26, 31, 26);
+        line(this.position.x, this.position.y-10, this.position.x, this.position.y-5);
+        line(this.position.x-5, this.position.y-10, this.position.x, this.position.y-5);
+        line(this.position.x+5, this.position.y-10, this.position.x, this.position.y-5);
+        popMatrix();
+
+    }
+    this.checkFall();
+};
+
+// initialize game object based on tilemap initialization
+gameObj.prototype.initialize = function() {
+    for (var i=0; i<79; i++) {
+        for (var j = 0; j < 10; j++) {
+            switch (this.tilemap[i][j]) {
+                case 'w' :
+                    this.objects.push(new objectObj(j*40, i*10,1));
+                break;
+            }
+        }
+    }
+};
+
+// game drawbackground
+gameObj.prototype.drawBackground = function() {
+    for (var i = 0; i< 79; i++) {
+        for (var j =0; j < 10; j++) {
+            switch (game.tilemap[i][j]) {
+                case 'w':
+                      platform.draw(j*40, i*10);
+                    break;
+            }
+        }
+    }
+    //platform moving down
+    this.yCor += 0.05;
+     if (this.yCor >= 0) {
+         this.yCor = -400;
+         this.xCor = random (0,10); //needed for p4 project
+     }
+};
+
+var keyPressed = function() {
+    // UP - W or w - 87
+    // LEFT - A or a - 65
+    // RIGHT - D or d - 68
+
+    if ((keyCode === RIGHT) || (keyCode === 68)) {
+            player.walkForward = 1;
+    }
+    if ((keyCode === LEFT) || (keyCode === 65)) {
+            player.walkBackward = 1;
+    }
+    if (((keyCode === UP) || (keyCode === 87)) && (player.jump === 0)) {
+            player.jump = 2;
+    }
+};
+
+var keyReleased = function() {
+    if ((keyCode === RIGHT) || (keyCode === 68)) {
+            player.walkForward = 0;
+    }
+    else if ((keyCode === LEFT) || (keyCode === 65)) {
+            player.walkBackward = 0;
+    }
+    else if ((keyCode === UP) || (keyCode === 87)) {
+            player.jump = 1;
+    }
+};
+
+// game starts when mouse is clicked
+var mouseClicked = function() {
+    start = 1;
+};
+
+// title screen/ instructions
+var pineappleStartScreen = function() {
+    background(192, 230, 240);
+    noStroke();
+    fill(54, 142, 214);
+    //border
+    rect(0,0,10,400);
+    rect(0,0,400,10);
+    rect(0,390,400,400);
+    rect(390,10,400,400);
+
+    fill(49, 15, 135);
+
+    textSize(20);
+    text("                Doodle Pac Jump", 40, 30);
+    text("               _______________", 40,35);
+    text(" Theme:", 11, 53);
+    textSize(14);
+    text(" Help Mr.Pineapple collect all 5 of his watermelon friends,", 12, 70);
+    text(" to become enchanted for 8 seconds!", 12, 90);
+    text(" Don't let him fall into the ocean and watch out for the flies!", 12, 110);
+
+    textSize(20);
+    text(" Instructions:", 12, 140);
+    textSize(14);
+    text("  Use Arrow Keys or W: Jump A:left D:right", 124, 140);
+    text("                               to move around..", 8, 160);
+    strokeWeight(4);
+    stroke(255, 179, 0);
+    fill(255, 225, 0);
+    ellipse(100, 300, 120, 150);
+    stroke(255, 179, 0);
+    line(60, 250, 158, 300);
+    line(41, 300, 142, 350);
+    line(132, 240, 51, 340);
+    line(155, 275, 77, 370);
+    fill(12, 191, 6);
+    stroke(25, 145, 16);
+    ellipse(100, 200, 20, 70);
+    ellipse(80, 205, 20, 60);
+    ellipse(120, 205, 20, 60);
+
+    noStroke();
+    fill(0, 0, 0);
+    if (blink <= 25) {
+        ellipse(80, 290, 10, 10);
+        ellipse(120, 290, 10, 10);
+        blink++;
+    } else {
+        blink = 0;
+    }
+    arc(100, 310, 20, 20, 0, PI);
+    fill(240, 152, 240);
+    ellipse(70, 310, 15, 15);
+    ellipse(130, 310, 15, 15);
+
+    fill(242, 234, 242);
+    ellipse(270, 250, 210, 100); //use the same size for fly/pineapple rotation
+    triangle(270,270,250,320,310,270);
+    fill(49, 15, 135);
+    textSize(20);
+    text("Click mouse to start", 180, 255);
+
+};
+
+// gameover screen graphics
+var pineappleFinal = function() {
+    background(171, 152, 179);
+    background(192, 230, 240);
+    
+    fill(32, 41, 145);
+    textSize(20);
+    text("               Doodle Pac Jump", 40, 30);
+    text("              _______________", 40,35);
+
+    strokeWeight(4);
+    stroke(255, 179, 0);
+    fill(255, 225, 0);
+    ellipse(200, 181, 120, 150);
+    stroke(255, 179, 0);
+    line(177, 250, 250, 143);
+    line(145, 210, 220, 115);
+    line(225, 250, 149, 145);
+    line(251, 220, 170, 115);
+    fill(12, 191, 6);
+    stroke(25, 145, 16);
+    ellipse(200, 80, 20, 70);
+    ellipse(180, 85, 20, 60);
+    ellipse(220, 85, 20, 60);
+
+    noStroke();
+    fill(0, 0, 0);
+    ellipse(180, 170, 10, 10);
+    ellipse(220, 170, 10, 10);
+    if (playerwin ===1) {
+        // happy mouth
+        arc(200, 190, 20, 20, 0, PI);
+        //draw pineapple rotating around the zapped flies
+        fill(90, 111, 143);
+        ellipse(200, 330, 210, 100);
+        dummyfly2.draw(140,345);
+        dummyfly2.draw(170,355);
+        dummyfly2.draw(200,360);
+        dummyfly2.draw(230,355);
+        dummyfly2.draw(260,345);
+        textSize(12);
+        dummyPlayer.draw(200,330);
+        text("You WIN!!",170,330);
+    }
+    else {
+        // sad mouth
+        arc(200, 200, 20, 20, PI, 2*PI);
+        //draw flies rotating around the pipeapple
+        fill(107, 118, 153);
+        ellipse(200, 330, 210, 100);
+        fill(255, 242, 0);
+        textSize(15);
+        text("Game over :(", 162, 310);
+        text("     You lost, Try again later..",105,330);
+        dummyfly1.draw(200,330);
+        dummyfly1.draw(190,335);
+        dummyfly1.draw(210,340);
+        stillPlayer.draw(200,355);//pineapple should not move
+}
+    noStroke();
+    fill(240, 152, 240);
+    ellipse(170, 185, 15, 15);
+    ellipse(230, 185, 15, 15);
+};
+
+game.initialize();
+var draw = function() {
+
+    if(start === 0 ) {
+        pineappleStartScreen();
+        dummyfly1.draw(270,250);
+        dummyPlayer.draw(270,250);
+
+    }
+    else if ((start === 1) && (gameOver === 0)) {
+        background(202, 226, 237);
+        noStroke();
+        fill(107, 121, 130);
+        ellipse(300, 400, 40, 50);
+        ellipse(280, 400, 30, 40);
+        fill(66, 183, 222);
+        rect(0, 390, 400, 10);
+
+        clouds[0].draw();
+        clouds[0].move();
+        clouds[1].draw();
+        clouds[1].move();
+        clouds[2].draw();
+        clouds[2].move();
+
+        boat.draw();
+        boat.move();
+
+        //show score on top right corder
+        fill(49, 15, 135);
+        textSize(15);
+        text("Score: " + game.score, 300,15);
+
+        pushMatrix();
+        translate(game.xCor, game.yCor); //for project 4.. make sure to shift xCor
+        game.drawBackground();
+
+        player.draw();
+        player.update();
+        player.checkCollision();
+
+        fruitfly1.draw(30,385);
+        fruitfly1.state[fruitfly1.currState].execute(fruitfly1);
+
+        fruitfly2.draw(30,385);
+        fruitfly2.state[fruitfly2.currState].execute(fruitfly2);
+
+        fruitfly3.draw(30,385);
+        fruitfly3.state[fruitfly3.currState].execute(fruitfly3);
+
+        fruitfly4.draw(30,385);
+        fruitfly4.state[fruitfly4.currState].execute(fruitfly4);
+
+        fruitfly5.draw(30,385);
+        fruitfly5.state[fruitfly5.currState].execute(fruitfly5);
+
+        translate(game.xCor,disposition);
+        melons[0].draw(50-game.xCor,525); // - p4 shift xCor after yCor cycle
+        melons[0].move();
+        melons[1].draw(275-game.xCor,425);
+        melons[1].move();
+        melons[2].draw(350-game.xCor,525);
+        melons[2].move();
+        melons[3].draw(125-game.xCor,425);
+        melons[3].move();
+        melons[4].draw(200-game.xCor,525);
+        melons[4].move();
+
+        popMatrix();
+        //melons should not move
+        //counter their move with game yCor
+        //to create illusion that melons are not
+        //moving
+        disposition = disposition - 0.05;
+
+    }
+    else if (gameOver === 1){
+        //show final screen
+        pineappleFinal();
+    }
+};

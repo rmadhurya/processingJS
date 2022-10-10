@@ -1,0 +1,543 @@
+/*
+* Madhu Ratnakar
+* 10/23/2020
+* Video Game Design Project 6: Butterflies and blow-bubbles
+* Animations: 
+*   - Butterfly wings drawn with multiple subdivision shapes, which iterate to have a flapping effect
+*   - Butterflies wander around the canvas
+*   - Butterfly antennae animation using bezier
+*   - Colorful bubbles blown with wand from right to left to match the wind direction shown from the clouds. transparency to imitate bubbles from real life
+*   - Bubbles slow down as they fly down due to gravity and the initial velocity at which the bubbles start from
+*   - random inital velocity of the bubbles to shown variation with the bubbles, instead of just one stream of bubbles
+*   - Mountains and flowers drawn in random/realistic positions
+*   - kite animation using bezier, drawn in background
+*   - sun animation using noise to show sun rays
+*/
+
+angleMode = "radians";
+
+// bubble object decalaration
+var bubbleObj = function() {
+    this.position = new PVector(380,20);
+    this.velocity = new PVector(random(-5,-1), random(-0.5,0.5));
+    this.acceleration = new PVector(0, 0.05);
+    this.alpha = 255;
+    this.size = 20;
+};
+
+// bubble draw
+bubbleObj.prototype.draw = function() {
+    //this.velocity.set(0,0);
+    fill(random(100,255),this.alpha, random(100,255),50);
+    noStroke();
+    ellipse(this.position.x, this.position.y, this.size, this.size);
+    //this.position.x += this.velocity.x;
+    //this.position.y += this.velocity.y;
+    this.velocity.add(this.acceleration);
+    this.position.add(this.velocity);
+    this.alpha -= 2;
+
+    // bubble wand
+    noFill();
+    strokeWeight(4);
+    stroke(84, 153, 232);
+    ellipse(380,20,20,20);
+    line(384,30,400,60);
+    strokeWeight(2);
+};
+
+// yellow flower
+var flowerOneObj = function(x,y) {
+    this.x = x;
+    this.y = y;
+};
+
+// pink flower
+var flowerTwoObj = function(x,y) {
+    this.x = x;
+    this.y = y;
+};
+
+// white flower
+var flowerThreeObj = function(x,y) {
+    this.x = x;
+    this.y = y;
+};
+
+flowerOneObj.prototype.draw = function() {
+    noStroke();
+    fill(251, 255, 0);
+    ellipse(this.x-6,this.y,8,5);
+    ellipse(this.x+6,this.y,8,5);
+    ellipse(this.x,this.y-6,5,8);
+    ellipse(this.x,this.y+6,5,8);
+    fill(143, 103, 8);
+    ellipse(this.x,this.y,5,5);
+};
+
+flowerTwoObj.prototype.draw = function() {
+    noStroke();
+    fill(236, 139, 245);
+    ellipse(this.x-6,this.y,8,5);
+    ellipse(this.x+6,this.y,8,5);
+    ellipse(this.x,this.y-6,5,8);
+    ellipse(this.x,this.y+6,5,8);
+    fill(255, 225, 0);
+    ellipse(this.x,this.y,5,5);
+};
+
+flowerThreeObj.prototype.draw = function() {
+    noStroke();
+    fill(249, 242, 250);
+    ellipse(this.x-6,this.y,8,5);
+    ellipse(this.x+6,this.y,8,5);
+    ellipse(this.x,this.y-6,5,8);
+    ellipse(this.x,this.y+6,5,8);
+    fill(153, 197, 242);
+    ellipse(this.x,this.y,5,5);
+};
+
+// butterflu object declaration
+var butterflyObj = function(x,y,c) {
+    this.position = new PVector(x, y);
+    this.points = [];
+    this.p2 = [];
+    this.iterations = 0;
+    this.init = 0;
+    this.color = c;
+    this.wanderDist = 0;
+    this.step = new PVector(0,0);
+    this.i = 0;
+    this.currFrame = frameCount;
+};
+
+// antennae object declaration
+var antennaeObj = function(x,y) {
+    this.position = new PVector(x, y);
+};
+
+antennaeObj.prototype.draw = function() {
+        //beziers
+    stroke(89, 84, 84);
+    bezier(this.position.x, this.position.y, this.position.x-15, this.position.y-15,this.position.x-25, this.position.y-25,this.position.x-10, this.position.y-10);
+    bezier(this.position.x, this.position.y, this.position.x+15, this.position.y-15,this.position.x+25, this.position.y-25,this.position.x+10, this.position.y-10);
+};
+
+// All GLOBAL VARIABLES
+var butterfly1 = new butterflyObj(random(50, 350),random(50, 350),0);
+var butterfly2 = new butterflyObj(random(50, 350),random(50, 350),1);
+var butterfly3 = new butterflyObj(random(50, 350),random(50, 350),2);
+var butterfly4 = new butterflyObj(random(50, 350),random(50, 350),3);
+var butterfly5 = new butterflyObj(random(50, 350),random(50, 350),4);
+var flowerOnes = [new flowerOneObj(random(15, 385),random(350,390)), new flowerOneObj(random(50, 350),random(350,390)), new flowerOneObj(random(15, 385),random(350,390)), new flowerOneObj(random(50, 350),random(350,390))];
+
+var flowerTwos = [new flowerTwoObj(random(15, 385),random(350,390)), new flowerTwoObj(random(50, 350),random(350,390)), new flowerTwoObj(random(15, 385),random(350,390)), new flowerTwoObj(random(15, 385),random(350,390))];
+
+var flowerThrees = [new flowerThreeObj(random(15, 385),random(350,390)), new flowerThreeObj(random(50, 350),random(350,390)), new flowerThreeObj(random(15, 385),random(350,390)), new flowerThreeObj(random(15, 385),random(350,390))];
+
+var x1 = 0;
+var y1 = 0;
+var cx1 = -15;
+var cy1 = -15;
+var cx2 = -25;
+var cy2 = -25;
+var x2 = -10;
+var y2 = -10;
+var cx1Dir = 2;
+var cx2Dir = -8;
+var x2Dir = -2;
+
+// wings subdivision case statments
+butterflyObj.prototype.wingsFlap = function() {
+    switch(this.i) {
+        case 0:
+            this.points = [
+                new PVector(this.position.x, this.position.y+5),
+                new PVector(this.position.x+17, this.position.y-4),
+                new PVector(this.position.x+28, this.position.y+5),
+                new PVector(this.position.x+15, this.position.y+13),
+                new PVector(this.position.x+22, this.position.y+23),
+                new PVector(this.position.x+11, this.position.y+26),
+                new PVector(this.position.x, this.position.y+19),
+                new PVector(this.position.x-11, this.position.y+26),
+                new PVector(this.position.x-22, this.position.y+23),
+                new PVector(this.position.x-15, this.position.y+13),
+                new PVector(this.position.x-28, this.position.y+5),
+                new PVector(this.position.x-17, this.position.y-4),
+                new PVector(this.position.x, this.position.y+5)
+            ];
+            break;
+        case 1:
+            this.points = [
+                new PVector(this.position.x, this.position.y+5),
+                new PVector(this.position.x+11, this.position.y-4),
+                new PVector(this.position.x+20, this.position.y+5),
+                new PVector(this.position.x+10, this.position.y+13),
+                new PVector(this.position.x+16, this.position.y+23),
+                new PVector(this.position.x+8, this.position.y+26),
+                new PVector(this.position.x, this.position.y+19),
+                new PVector(this.position.x-8, this.position.y+26),
+                new PVector(this.position.x-16, this.position.y+23),
+                new PVector(this.position.x-10, this.position.y+13),
+                new PVector(this.position.x-20, this.position.y+5),
+                new PVector(this.position.x-11, this.position.y-4),
+                new PVector(this.position.x, this.position.y+5)
+            ];
+            break;
+        case 2:
+            this.points = [
+                new PVector(this.position.x, this.position.y+5),
+                new PVector(this.position.x+6, this.position.y-4),
+                new PVector(this.position.x+11, this.position.y+5),
+                new PVector(this.position.x+5, this.position.y+13),
+                new PVector(this.position.x+8, this.position.y+23),
+                new PVector(this.position.x+4, this.position.y+26),
+                new PVector(this.position.x, this.position.y+19),
+                new PVector(this.position.x-4, this.position.y+26),
+                new PVector(this.position.x-8, this.position.y+23),
+                new PVector(this.position.x-5, this.position.y+13),
+                new PVector(this.position.x-11, this.position.y+5),
+                new PVector(this.position.x-6, this.position.y-4),
+                new PVector(this.position.x, this.position.y+5)
+            ];
+            break;
+        case 3:
+            this.points = [
+                new PVector(this.position.x, this.position.y+5),
+                new PVector(this.position.x+11, this.position.y-4),
+                new PVector(this.position.x+20, this.position.y+5),
+                new PVector(this.position.x+10, this.position.y+13),
+                new PVector(this.position.x+16, this.position.y+23),
+                new PVector(this.position.x+8, this.position.y+26),
+                new PVector(this.position.x, this.position.y+19),
+                new PVector(this.position.x-8, this.position.y+26),
+                new PVector(this.position.x-16, this.position.y+23),
+                new PVector(this.position.x-10, this.position.y+13),
+                new PVector(this.position.x-20, this.position.y+5),
+                new PVector(this.position.x-11, this.position.y-4),
+                new PVector(this.position.x, this.position.y+5)
+            ];
+            break;
+    }
+};
+
+// subdivision functions for butterfly
+butterflyObj.prototype.splitPoints = function() {
+    this.p2.splice(0, this.p2.length);
+    for (var i = 0; i < this.points.length - 1; i++) {
+        this.p2.push(new PVector(this.points[i].x, this.points[i].y));
+        this.p2.push(new PVector((this.points[i].x + this.points[i+1].x)/2, (this.points[i].y +
+this.points[i+1].y)/2));
+    }
+    this.p2.push(new PVector(this.points[i].x, this.points[i].y));
+    this.p2.push(new PVector((this.points[0].x + this.points[i].x)/2, (this.points[0].y +
+this.points[i].y)/2));
+};
+
+butterflyObj.prototype.average = function() {
+    for (var i = 0; i < this.p2.length - 1; i++) {
+        var x = (this.p2[i].x + this.p2[i+1].x)/2;
+        var y = (this.p2[i].y + this.p2[i+1].y)/2;
+        this.p2[i].set(x, y);
+    }
+    var x = (this.p2[i].x + this.points[0].x)/2;
+    var y = (this.p2[i].y + this.points[0].y)/2;
+    this.points.splice(0, this.points.length);
+    for (i = 0; i < this.p2.length; i++) {
+        this.points.push(new PVector(this.p2[i].x, this.p2[i].y));
+    }
+};
+
+butterflyObj.prototype.subdivide = function() {
+    this.splitPoints();
+    this.average();
+};
+
+// butterfly draw
+butterflyObj.prototype.draw = function() {
+    this.points.splice(0, this.points.length);
+    this.wingsFlap();
+
+
+    //if (this.iterations < 5) {
+        this.subdivide();
+        this.iterations++;
+        this.init = 1; //initializaiton of the sub division is done
+    //}
+
+    translate(0,0);
+    pushMatrix();
+    noStroke();
+    beginShape();
+    switch(this.color) {
+        case 0:
+            fill(250, 170, 250);
+            break;
+        case 1:
+            fill(255, 174, 0);
+            break;
+        case 2:
+            fill(174, 0, 255);
+            break;
+        case 3:
+            fill(238, 255, 0);
+            break;
+        case 4:
+            fill(0, 255, 217);
+            break;
+    }
+
+    for (var i = 0; i < this.points.length; i++) {
+        vertex(this.points[i].x, this.points[i].y);
+    }
+    endShape();
+    //Head and body
+    fill(102, 91, 102);
+    ellipse( this.position.x, this.position.y,12,12);
+    ellipse( this.position.x, this.position.y+8,10,10);
+    ellipse( this.position.x, this.position.y+15,8,8);
+    ellipse( this.position.x, this.position.y+20,7,7);
+    ellipse( this.position.x, this.position.y+24,6,6);
+    ellipse( this.position.x, this.position.y+27,5,5);
+
+    //Dots
+    switch(this.color) {
+        case 0:
+            fill(245, 213, 245);
+            break;
+        case 1:
+            fill(245, 226, 179);
+            break;
+        case 2:
+            fill(225, 184, 245);
+            break;
+        case 3:
+            fill(245, 245, 233);
+            break;
+        case 4:
+            fill(184, 240, 232);
+            break;
+    }
+
+    switch(this.i) {
+        case 0:
+            ellipse( this.position.x-15, this.position.y+5,6,6);
+            ellipse( this.position.x+15, this.position.y+5,6,6);
+            ellipse( this.position.x-12, this.position.y+18,6,6);
+            ellipse( this.position.x+12, this.position.y+18,6,6);
+    }
+
+    pushMatrix();
+    translate(this.position.x,this.position.y);
+    //beziers
+    stroke(89, 84, 84);
+    noFill();
+
+    bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2);
+    bezier(x1, y1, -cx1, cy1, -cx2, cy2, -x2, y2);
+    cx1 += cx1Dir;
+    if ((cx1 > x2) || (cx1 < x1)) {cx1Dir = -cx1Dir;}
+    cx2 += cx2Dir;
+    if ((cx2 < x1) || (cx2 > x2)) {cx2Dir = -cx2Dir;}
+    x2 += x2Dir;
+    if ((abs(x1 - x2) > 100) || (x2 < x1)) {x2Dir = -x2Dir;}
+
+    noStroke();
+    popMatrix();
+    popMatrix();
+
+    // slowing down butterfly wings flapping
+    if (this.currFrame < (frameCount - 2)) {
+        this.currFrame = frameCount;
+        this.i++;
+        if (this.i > 3) {
+            this.i = 0;
+        }
+    }
+};
+
+butterflyObj.prototype.move = function() {
+    //left wing
+};
+
+butterflyObj.prototype.roam = function() {
+    if (this.wanderDist <= 0) {
+        this.wanderDist = random(50, 80); //TODO
+        this.angle = random(0, 2*PI);
+        this.step.set(cos(this.angle), sin(this.angle));
+    }
+    this.wanderDist--;
+    this.position.add(this.step);
+
+    for (var i = 0; i < this.points.length; i++) {
+        this.points[i].add(this.step);
+    }
+
+    if ((this.position.x > 380) || (this.position.x < 20) || (this.position.y > 380) || (this.position.y < 20))
+    {
+        this.position.sub(this.step);
+        for (var i = 0; i < this.points.length; i++) {
+            this.points[i].sub(this.step);
+        }
+    }
+};
+
+var mountains = [[],[],[],[],[],[]];
+var a=random(1500);
+
+for (var i=0; i<=5; i++) {
+    for (var j=0; j<=40; j++) {
+        var n = noise(a);
+        mountains[i][j] = map(n,0,1,0,400-i*50);
+        a += 0.01;  // ruggedness
+    }
+}
+
+//draw kite with string
+//begin-kite
+var kite_x1 = 162;
+var kite_y1 = 160;
+var ckite_x1 = 162;
+var ckite_y1 = 188;
+var ckite_x2 = 150;
+var ckite_y2 = 190;
+var kite_x2 =262;
+var kite_y2 = 256;
+
+var ckite_x1Dir = 1;
+var ckite_x2Dir = -1;
+var kite_x1Dir = -1;
+var drawKite = function() {
+    noFill();
+    stroke(228, 235, 23);
+    bezier(kite_x1, kite_y1, ckite_x1, ckite_y1, ckite_x2, ckite_y2, kite_x2, kite_y2);
+    ckite_x1 += ckite_x1Dir;
+    if ((ckite_x1 > kite_x2) || (ckite_x1 < kite_x1)) {ckite_x1Dir = -ckite_x1Dir;}
+    ckite_x2 += ckite_x2Dir;
+    if ((ckite_x2 < kite_x1) || (ckite_x2 > kite_x2)) {ckite_x2Dir = -ckite_x2Dir;}
+    kite_x1 += kite_x1Dir;
+    if ((abs(kite_x1 - kite_x2) > 100) || (kite_x2 < kite_x1)) {kite_x1Dir = -kite_x1Dir;}
+    stroke(235, 23, 101);
+    beginShape();
+        vertex(kite_x1,kite_y1);
+        vertex(kite_x1+3,kite_y1);
+        vertex(kite_x1,kite_y1+7);
+        vertex(kite_x1,kite_y1);
+        vertex(kite_x1,kite_y1-7);
+        vertex(kite_x1-3,kite_y1);
+        vertex(kite_x1,kite_y1);
+        vertex(kite_x1,kite_y1+7);
+        vertex(kite_x1-3,kite_y1);
+        vertex(kite_x1+5,kite_y1);
+        vertex(kite_x1,kite_y1-7);
+        //vertex(kite_x1,kite_y1+40);
+        vertex(kite_x1-1,kite_y1+7);
+        vertex(kite_x1+1,kite_y1+7);
+        vertex(kite_x1-1,kite_y1+10);
+        vertex(kite_x1+1,kite_y1+10);
+        vertex(kite_x1-1,kite_y1+13);
+        vertex(kite_x1+1,kite_y1+13);
+        vertex(kite_x1-1,kite_y1+16);
+        vertex(kite_x1+1,kite_y1+16);
+        vertex(kite_x1-1,kite_y1+20);
+        vertex(kite_x1+1,kite_y1+20);
+    endShape();
+    noStroke();
+};
+//end-kite
+
+
+var bubbles = [];
+var drawSun = function() {
+    pushMatrix();
+    translate(100,100);
+    stroke(255, 242, 0);
+    fill(240, 140, 17);
+    beginShape();
+    for (var a = 0; a < TWO_PI; a+=0.1){
+        var r = random(25,29);
+        var x = r * cos(a);
+        var y = r * sin(a);
+        vertex(x,y);
+    }
+    endShape();
+    noStroke();
+    popMatrix();
+};
+
+// main draw function
+var draw = function() {
+    background(255,255,255);
+
+    // sky
+    var n1 = a;
+    for (var x=0; x<=400; x+=8) {
+        var n2 = 0;
+        for (var y=0; y<=250; y+=8) {
+            var c = map(noise(n1,n2),0,1,0,255);
+            fill(c, c+100, c+200,150);
+            rect(x,y,8,8);
+            n2 += 0.05; // step size in noise
+        }
+        n1 += 0.02; // step size in noise
+    }
+    a += 0.01;  // speed of clouds
+
+    drawSun(); // sun drawn after sky draw
+
+    // mountains
+    for (x=0; x<=5; x++) {
+        for (var y=0; y<=40; y++) {
+            fill(20 + x*5, 180+x*10, 0);
+            // draw quads of width 10 pixels
+            quad(y*10,mountains[x][y]+x*55,(y+1)*10,mountains[x][y+1]+(x)*55,(y+1)*10,400,y*10,400);
+        }
+    }
+    
+    // flower draws
+    for (var i=0; i < flowerTwos.length; i++) {
+        flowerTwos[i].draw();
+    }
+    for (var i=0; i < flowerOnes.length; i++) {
+        flowerOnes[i].draw();
+    }
+    for (var i=0; i < flowerThrees.length; i++) {
+        flowerThrees[i].draw();
+    }
+
+    //add bubbles
+    for (var i = 0; i < 1; i++) {
+        bubbles.push (new bubbleObj());
+    }
+    
+    //println(bubbles.length);
+    //cleanup vanished bubbles
+    for (var i = 0; i < bubbles.length; i++){
+        if (bubbles[i].alpha < 0) {
+            bubbles.splice(i,1);
+        }
+    }
+
+    for (var i = 0; i < bubbles.length; i++) {
+        bubbles[i].draw();
+    }
+    
+    // draw kite in the background
+    drawKite();
+
+    // drawing and moving each butterfly
+    butterfly1.draw();
+    butterfly1.roam();
+
+    butterfly2.draw();
+    butterfly2.roam();
+
+    butterfly3.draw();
+    butterfly3.roam();
+
+    butterfly4.draw();
+    butterfly4.roam();
+
+    butterfly5.draw();
+    butterfly5.roam();
+};

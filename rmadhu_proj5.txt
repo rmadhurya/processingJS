@@ -1,0 +1,829 @@
+/*
+* Madhu Ratnakar
+* 10/9/2020
+* Video Game Design Project 5: Heads Up Dodge Ball
+* This program is a dodge ball game using vectors and physics concepts to shoot canon balls
+* at the birds. The birds try to avoid the ball by moving in any direction.
+* Animations: 
+*   1) Title Screen:
+*       - Bird and Ball moving around screen using vectors
+*   2) Game Screen
+*       - flying birds dodge algorithm using whiskers to avoid ball
+*       - red and green circles on canon represent timer (1 ball every second)
+*       - canon move in angler motion
+*       - ball projectile motion with gravity, bouncing ball 3 times then dissappears
+*       - bird changes color from green to prange after first struck, 
+*          and second hit the bird dies
+*       - drew finish line and bird paths
+*   3) Game Over Screen
+*       - Win screen: fireforks
+*       - Lose Screen: bird move left to right
+*/
+
+angleMode = "radians";
+//begin - starting and ending screen objects
+var birdTempObj = function(x, y, a, b) {
+    this.position = new PVector(x, y);
+    this.velocity = new PVector(random(-0.2,0.2),random(-0.5,0.5));
+
+};
+birdTempObj.prototype.draw = function() {
+    translate(0,0);
+    noStroke();
+    fill(9, 255, 0); //bird default and no hit
+    ellipse(this.position.x,this.position.y,25,25);
+    fill(255, 0, 0);
+    triangle(this.position.x,this.position.y-8,this.position.x+5,this.position.y-15,this.position.x+10,this.position.y-15);
+    ellipse(this.position.x+10,this.position.y+5,13,10);
+    fill(255, 221, 0);
+    ellipse(this.position.x-14,this.position.y,7,5);
+    ellipse(this.position.x+7,this.position.y+5,10,10);
+    fill(8, 0, 0);
+    ellipse(this.position.x-5,this.position.y-5,3,3);
+    strokeWeight(2);
+    fill(11, 13, 11);
+};
+
+// fireworks end screen
+var explosionObj = function(a) {
+    this.position = new PVector(0, 0);
+    this.direction = new PVector(0, 0);
+    this.size = random(1, 3);
+    if (a === 0) {
+        this.c1 = random(0, 250);
+    }
+    else {
+        this.c1 = random(100, 255);
+    }
+    if (a === 1) {
+        this.c2 = random(0, 250);
+    }
+    else {
+        this.c2 = random(100, 255);
+    }
+    if (a === 3) {
+        this.c3 = random(0, 250);
+    }
+    else {
+        this.c3 = random(100, 255);
+    }
+    this.timer = 0;
+};  
+
+// fireworks end screen
+var fireworkObj = function(a) {
+    this.position = new PVector(200, 380);
+    this.direction = new PVector(0, 0);
+    this.target = new PVector(mouseX, mouseY);
+    this.step = 0;
+    this.explosions = [];
+    for (var i = 0; i < 200; i++) {
+        this.explosions.push(new explosionObj(a));   
+    }    
+};  
+
+//starting screen objects
+var dodgeBallTempObj = function(x,y,t) {
+    this.position = new PVector(x,y);
+    this.size = 30;
+    this.velocity = new PVector(random(-0.2,0.2),random(-0.5,0.5));
+};
+dodgeBallTempObj.prototype.draw = function() {
+    fill(255, 255, 255);
+    noStroke();
+    ellipse(this.position.x, this.position.y, this.size, this.size);
+};
+var bird22 = new birdTempObj(random(0,400), random(0,400));
+var bird33 = new birdTempObj(random(0,400), random(0,400));
+var bird44 = new birdTempObj(random(0,400), random(0,400));
+var bird55 = new birdTempObj(random(0,400), random(0,400));
+var ball22 = new dodgeBallTempObj(random(0, 400), random(0,400));
+birdTempObj.prototype.roam = function() {
+    this.position.add(this.velocity);
+
+    if ((this.position.x > width-10) || (this.position.x < 10)) {
+        this.velocity.x = this.velocity.x * -1;
+    }
+    if ((this.position.y > height-10) || (this.position.y < 10)) {
+        this.velocity.y = this.velocity.y * -1;
+    }
+
+    this.position.add(this.velocity);
+
+};
+dodgeBallTempObj.prototype.roam = function() {
+    this.position.add(this.velocity);
+
+    if ((this.position.x > width-10) || (this.position.x < 10)) {
+        this.velocity.x = this.velocity.x * -1;
+    }
+    if ((this.position.y > height-10) || (this.position.y < 10)) {
+        this.velocity.y = this.velocity.y * -1;
+    }
+
+    this.position.add(this.velocity);
+
+};
+//end - starting and ending screen objects
+
+// bird states
+var haltState = function() {
+    this.angle = 0;
+};
+
+var turnState = function() {
+    this.angle = 0;
+    this.angleDir = 0;
+    this.vec = new PVector(0,0);
+};
+
+var chaseState = function() {
+    this.step = new PVector(0,0);
+};
+
+var targetObj = function(x, y) {
+    this.x = x;
+    this.y = y;
+};
+
+// main bird game object
+var birdObj = function(x, y, a, b) {
+    this.position = new PVector(x, y);
+    this.target = new PVector(a, b);
+    this.finalDest = new PVector(a, b);
+    this.state = [new haltState(), new turnState(), new chaseState()];
+    this.currState = 0;
+    this.angle = 0;
+    this.whisker1 = new PVector(0, 0);
+    this.whisker2 = new PVector(0, 0);
+    this.whisker3 = new PVector(0, 0);
+    this.whisker4 = new PVector(0, 0);
+    this.hit = 0;
+};
+
+var endScreenBirdObj = function(x, y) {
+    this.position = new PVector(x, y);
+};
+
+var cannonObj = function(x) {
+    this.x = x;
+    this.theta=PI/2;
+};
+
+var dodgeBallObj = function(x,y,t) {
+    this.position = new PVector(x,y);
+    this.direction = new PVector(0, 0);
+    this.target = new PVector(t,-100); //MADHU
+    this.size = 30;
+    this.bounceCoeff = -0.3; //needed to bounce
+    this.velocity = new PVector(0, 0);
+    this.acceleration = new PVector(0, 0.2);//TODO:tune accelertion
+    this.speed = 0.07;
+    this.bounceCount = 0; // needed to count the bounces before disappearing
+    this.hit = 0;
+};
+
+// Variable Declarations
+var startGame = 0;
+var gameOver = 0;
+var playerWin = 0;
+var playerScore = 0;
+
+var cannon = new cannonObj(180); // starting position of cannon
+var dodgeBall = [];
+var bird1 = new birdObj(400, 50);//top band
+var bird2 = new birdObj(400, 120);//2nd - yellow band
+var bird3 = new birdObj(400, 190);//3rd band - blue
+var bird4 = new birdObj(400, 260);//4th band - pink
+var endBird = new endScreenBirdObj(380,50);
+
+var target = new targetObj(0,120);//yellow band
+
+var finalDest = new targetObj(0, 0);
+
+var xCor = 20;
+var yCor = 400;
+var tCor = 0;
+
+var timer = 0;
+
+var firework = [new fireworkObj(0), new fireworkObj(1), new fireworkObj(2), new fireworkObj(0)];
+
+fireworkObj.prototype.draw = function() {
+    fill(255, 255, 255);
+    noStroke();
+    ellipse(this.position.x, this.position.y, 2, 2);
+    
+    this.position.add(this.direction);
+    if (dist(this.position.x, this.position.y, this.target.x, this.target.y) < 4) {
+        this.step = 2;
+        for (var i = 0; i < this.explosions.length; i++) {
+            this.explosions[i].position.set(this.target.x, this.target.y);
+            
+            this.explosions[i].direction.set(random(0, 360), random(-0.3, 0.3));
+
+            this.explosions[i].timer = 180;
+        }
+    }    
+};
+
+explosionObj.prototype.draw = function() {
+    fill(this.c1, this.c2, this.c3, this.timer);	// 4th value fader
+    noStroke();
+    ellipse(this.position.x, this.position.y, this.size, this.size);
+    
+    this.position.x += this.direction.y*cos(this.direction.x);
+    this.position.y += this.direction.y*sin(this.direction.x);
+    this.position.y += (90/(this.timer + 100));    //gravity
+    this.timer--;
+};
+
+// main bird game draw function
+birdObj.prototype.draw = function() {
+    translate(0,0);
+    noStroke();
+    if (this.hit === 0) {
+        fill(9, 255, 0); //bird default and no hit
+    }
+    else if (this.hit === 1) {
+        fill(237, 158, 12); //bird hit once
+    }
+    else if (this.hit > 1) {
+        this.position.set(-30,-30);
+    }
+
+    ellipse(this.position.x,this.position.y,25,25);
+    fill(255, 0, 0);
+    triangle(this.position.x,this.position.y-8,this.position.x+5,this.position.y-15,this.position.x+10,this.position.y-15);
+    ellipse(this.position.x+10,this.position.y+5,13,10);
+    fill(255, 221, 0);
+    ellipse(this.position.x-14,this.position.y,7,5);
+    ellipse(this.position.x+7,this.position.y+5,10,10);
+    fill(8, 0, 0);
+    ellipse(this.position.x-5,this.position.y-5,3,3);
+    strokeWeight(2);
+    fill(11, 13, 11);
+    ellipse(this.position.x-15, this.position.y-15,2,2);
+    ellipse(this.position.x-15, this.position.y+15,2,2);
+    ellipse(this.position.x+15, this.position.y-15,2,2);
+    ellipse(this.position.x+15, this.position.y+15,2,2);
+};
+
+endScreenBirdObj.prototype.draw = function() {
+    noStroke();
+    fill(9, 255, 0);
+    ellipse(this.position.x,this.position.y,25,25);
+    fill(255, 0, 0);
+    triangle(this.position.x,this.position.y-8,this.position.x+5,this.position.y-15,this.position.x+10,this.position.y-15);
+    ellipse(this.position.x+10,this.position.y+5,13,10);
+    fill(255, 221, 0);
+    ellipse(this.position.x-14,this.position.y,7,5);
+    ellipse(this.position.x+7,this.position.y+5,10,10);
+    fill(8, 0, 0);
+    ellipse(this.position.x-5,this.position.y-5,3,3);
+    strokeWeight(2);
+    fill(11, 13, 11);
+    ellipse(this.position.x-15, this.position.y-15,2,2);
+    ellipse(this.position.x-15, this.position.y+15,2,2);
+    ellipse(this.position.x+15, this.position.y-15,2,2);
+    ellipse(this.position.x+15, this.position.y+15,2,2);
+    
+    this.position.x--;
+    
+    if(this.position.x === -15) {
+        this.position.x = 415;
+    }
+    
+};
+
+birdObj.prototype.changeState = function(x) {
+    this.currState = x;
+};
+
+haltState.prototype.execute = function(me) {
+
+    if (dist(me.position.x, me.position.y, me.target.x, me.target.y) < 5) {
+        me.changeState(1);
+    }
+};
+
+turnState.prototype.execute = function(me) {
+    this.vec.set(me.target.x - me.position.x, me.target.y - me.position.y);
+    this.angle = this.vec.heading();
+    var angleDiff = abs(this.angle - me.angle);
+    if (angleDiff > 2) {
+        if (this.angle > me.angle) {
+            this.angleDir = 1;
+        }
+        else {
+            this.angleDir = -1;
+        }
+        if (angleDiff > PI) {
+            this.angleDir = -this.angleDir;
+        }
+
+        me.angle += this.angleDir; //TODO
+
+        if (me.angle > PI) {
+            me.angle = -radians(179);
+        }
+        else if (me.angle < -PI) {
+            me.angle = radians(179);
+        }
+    }
+    else {
+        me.changeState(2);
+    }
+};
+
+var findIntersection = function(p) {
+    var distance = 0;
+
+    for (var i=0; i<dodgeBall.length; i++) {
+        var d = dist(p.x, p.y, dodgeBall[i].position.x+10, dodgeBall[i].position.y+10);
+        if (d < 20) {
+            distance += d;
+        }
+    }
+
+    if (distance === 0) {
+        distance = 100000;
+    }
+
+    return(distance);
+};
+
+chaseState.prototype.collideWall = function(me) {
+    var collide = 0;
+    this.step.set(me.target.x - me.position.x, me.target.y - me.position.y);
+    this.step.normalize();
+    this.step.mult(15);
+    var ahead = PVector.add(me.position, this.step);
+    for (var i=0; i<dodgeBall.length; i++) {
+        //println(ahead.x + " " + ahead.y + " "+ dodgeBall[i].position.x + " " + dodgeBall[i].position.y);
+        if (dist(ahead.x, ahead.y, dodgeBall[i].position.x+10, dodgeBall[i].position.y+10) < 20) {
+            collide = 1;
+
+            me.whisker1.set(this.step.x, this.step.y);
+            me.whisker2.set(this.step.x, this.step.y);
+            me.whisker3.set(this.step.x, this.step.y);
+            me.whisker4.set(this.step.x, this.step.y);
+
+            me.whisker1.rotate(PI/4);//TODO
+            me.whisker2.rotate(-PI/4);
+            me.whisker3.rotate(-PI/2);
+            me.whisker4.rotate(-PI/2);
+
+            me.whisker1.add(me.position);//whiskers logic
+            me.whisker2.add(me.position);
+            me.whisker3.add(me.position);
+            me.whisker4.add(me.position);
+
+            var dist1 = findIntersection(me.whisker1);
+            var dist2 = findIntersection(me.whisker2);
+            var dist3 = findIntersection(me.whisker3);
+            var dist4 = findIntersection(me.whisker4);
+
+            if (dist1 > dist2) {
+                me.target.x = me.whisker1.x;
+                me.target.y = me.whisker1.y;
+            }
+            if (dist2 > dist3) {
+                me.target.x = me.whisker2.x;
+                me.target.y = me.whisker2.y;
+            }
+            if (dist3 > dist4) {
+                me.target.x = me.whisker3.x;
+                me.target.y = me.whisker3.y;
+            }
+            else {
+                me.target.x = me.whisker4.x;
+                me.target.y = me.whisker4.y;
+            }
+        }
+    }
+
+    return(collide);
+};
+
+chaseState.prototype.execute = function(me) {
+    if (this.collideWall(me) === 1) {
+        me.changeState(1);
+    }
+    else if (dist(me.target.x, me.target.y, me.position.x, me.position.y) > 2) {
+        this.step.set(me.target.x - me.position.x, me.target.y - me.position.y);
+        this.step.normalize();
+        this.step.mult(0.20); //TODO: controls the speed of the birds
+        me.position.add(this.step);
+    }
+    else {
+        if ((me.finalDest.x === me.target.x) && (me.finalDest.y === me.target.y)) {
+            me.changeState(0);
+            //game over condition
+            gameOver = 1;
+        }
+        else {
+            me.target.x = me.finalDest.x;
+            me.target.y = me.finalDest.y;
+            me.changeState(1);
+        }
+    }
+};
+
+cannonObj.prototype.draw = function() {
+    fill(111, 108, 199);
+    var c = cos(this.theta);
+    //var y = 25 * sin(this.theta);
+    pushMatrix();
+    translate(20,420);
+    noStroke();
+    rotate(PI-c);
+    rect(0,0+c, 30, 60, 20);
+    // green and red circle to represent timer every 1 second to shoot ball
+    if ( timer === 0 ) {
+        fill(26, 255, 0);
+        ellipse(15,40,20,20);
+    }
+    else {
+        fill(255, 0, 0);
+        ellipse(15,40,20,20);
+    }
+    popMatrix();
+};
+
+dodgeBallObj.prototype.draw = function() {
+    noStroke();
+    fill(255, 255, 255); //white
+    ellipse(this.position.x, this.position.y, this.size, this.size);
+    fill(235, 232, 235); //gray
+    ellipse(this.position.x, this.position.y, this.size-7, this.size);
+    fill(255, 255, 255);
+    ellipse(this.position.x, this.position.y, this.size-13, this.size);
+    fill(235, 232, 235);
+    ellipse(this.position.x, this.position.y, this.size-19, this.size);
+    fill(255, 255, 255);
+    ellipse(this.position.x, this.position.y, this.size-26, this.size);
+};
+
+// ball shoot algorithm
+dodgeBallObj.prototype.dodgeBall = function() {
+
+    var xX = this.target.x - this.position.x;
+    var yY = this.target.y - this.position.y;
+    //println(this.bounceCount);
+
+    this.position.add(this.direction);
+    this.direction.set(xX, yY);
+    this.direction.normalize();
+
+    if (this.bounceCount < 2 ) {
+        this.direction.mult(15);
+    }
+};
+
+// ball drop/bounce logic
+dodgeBallObj.prototype.drop = function() {
+    this.velocity.add(this.acceleration);
+    this.position.add(this.velocity);
+    //println(this.bounceCount);
+    if (this.position.y > (height - this.size/2)){
+        this.position.y = height - this.size/2;
+        this.velocity.y *= this.bounceCoeff;
+        this.bounceCount++;
+    }
+};
+
+// ball and bird collision algorithm
+dodgeBallObj.prototype.checkCollision = function() {
+
+    if ((dist(this.position.x, this.position.y, bird1.position.x, bird1.position.y) <= 10) && (this.hit === 0)) {
+        bird1.hit++;
+        this.hit = 1;
+        playerScore++;
+    }
+    if ((dist(this.position.x, this.position.y, bird2.position.x, bird2.position.y) <= 10) && (this.hit === 0)) {
+        bird2.hit++;
+        this.hit = 1;
+        playerScore++;
+    }
+    if ((dist(this.position.x, this.position.y, bird3.position.x, bird3.position.y) <= 10) && (this.hit === 0)) {
+        bird3.hit++;
+        this.hit = 1;
+        playerScore++;
+    }
+    if ((dist(this.position.x, this.position.y, bird4.position.x, bird4.position.y) <= 10) && (this.hit === 0)) {
+        bird4.hit++;
+        this.hit = 1;
+        playerScore++;
+    }
+};
+
+// timer resets after 1 second, function called in main draw
+var checkTimer = function() {
+    var newTimer = second();
+    if( abs(newTimer - timer) > 1 ) {
+        timer = 0;
+    }
+};
+
+var keyPressed = function() {
+    // UP - W or w - 87
+    // LEFT - A or a - 65
+    // RIGHT - D or d - 68
+
+    if ((keyCode === RIGHT) || (keyCode === 68)) {
+        cannon.theta += 0.05;
+        if (cannon.theta >=2.8) {
+            cannon.theta = 2.8;
+            tCor = 400;
+        }
+        //calculate the target coordinates for right side
+        tCor = 480*tan(cannon.theta - PI/2);
+    }
+    if ((keyCode === LEFT) || (keyCode === 65)) {
+        cannon.theta -= 0.05;
+        //1.57 radians is 90 degrees
+        if (cannon.theta <= 1.58) {
+            cannon.theta = 1.58;
+            tCor = 0;
+        }
+        //calculate the target coordinates for left side
+        tCor = 480*tan(cannon.theta - PI/2);
+    }
+    if (keyCode === 32) {
+        if (timer === 0) { //TODO: uncomment timer
+            dodgeBall.push(new dodgeBallObj(xCor,yCor,tCor));
+            timer = second();
+        }
+    }
+};
+
+var keyReleased = function() {
+    if ((keyCode === RIGHT) || (keyCode === 68)) {
+
+    }
+    else if ((keyCode === LEFT) || (keyCode === 65)) {
+
+    }
+    else if (keyCode === 32) {
+
+    }
+};
+
+// backgorund draw function
+var drawBackground = function() {
+    noStroke();
+    background(240, 204, 239);
+    fill(228, 204, 240);
+    rect(0, 100, 400, 100);
+    fill(215, 204, 240);
+    rect(0, 200, 400, 100);
+    fill(206, 204, 240);
+    rect(0, 300, 400, 100);
+    fill(64, 68, 184);
+    rect(0, 390, 400, 10);
+    
+    // bird path
+    fill(195, 115, 235);
+    rect(0,35,400,30);
+    fill(204, 217, 102);
+    rect(0,105,400,30);
+    // fill(23, 3, 3);
+    // text("Target",100,120);
+    fill(114, 149, 232);
+    rect(0,175,400,30);
+    fill(233, 115, 235);
+    rect(0,245,400,30);
+    
+    //finish line
+    fill(0, 0, 0);
+    rect(0,0,10,360);
+    fill(255, 255, 255);
+    rect(0,10,10,10);
+    rect(0,30,10,10);
+    rect(0,50,10,10);
+    rect(0,70,10,10);
+    rect(0,90,10,10);
+    rect(0,110,10,10);
+    rect(0,130,10,10);
+    rect(0,150,10,10);
+    rect(0,170,10,10);
+    rect(0,190,10,10);
+    rect(0,210,10,10);
+    rect(0,230,10,10);
+    rect(0,250,10,10);
+    rect(0,270,10,10);
+    rect(0,290,10,10);
+    rect(0,310,10,10);
+    rect(0,330,10,10);
+    rect(0,350,10,10);
+};
+
+var mouseClicked = function() {
+    startGame = 1;
+    bird1.target.x = 0;//mouseX
+    bird1.target.y = 50;//mouseY
+    bird1.finalDest.x = bird1.target.x;
+    bird1.finalDest.y = bird1.target.y;
+
+    bird2.target.x = 0;//mouseX
+    bird2.target.y = 120;//mouseY
+    bird2.finalDest.x = bird2.target.x;
+    bird2.finalDest.y = bird2.target.y;
+
+    bird3.target.x = 0;//mouseX
+    bird3.target.y = 190;//mouseY
+    bird3.finalDest.x = bird3.target.x;
+    bird3.finalDest.y = bird3.target.y;
+
+    bird4.target.x = 0;//mouseX
+    bird4.target.y = 260;//mouseY
+    bird4.finalDest.x = bird4.target.x;
+    bird4.finalDest.y = bird4.target.y;
+
+    if (bird1.currState !== 1) {
+        bird1.changeState(1);
+    }
+    if (bird2.currState !== 1) {
+        bird2.changeState(1);
+    }
+    if (bird3.currState !== 1) {
+        bird3.changeState(1);
+    }
+    if (bird4.currState !== 1) {
+        bird4.changeState(1);
+    }
+};
+
+var draw = function() {
+    
+    checkTimer();
+
+    if ((startGame === 1) && (gameOver === 0)){
+        // background printed every frame
+        drawBackground();
+        
+        fill(255, 0, 0);
+        text("Score:", 330, 20);
+        text(playerScore, 380, 20);
+        
+        if (playerScore >= 8 ) {
+            gameOver = 1;
+            playerWin = 1;
+        }
+
+        pushMatrix();
+        translate(0,0);
+
+        for (var i = 0; i < dodgeBall.length; i++) {
+            if(dodgeBall[i].bounceCount < 4) {
+                dodgeBall[i].dodgeBall();
+                dodgeBall[i].drop();
+                if (dodgeBall[i].hit === 0) {
+                    // remove ball if hit the bird
+                    dodgeBall[i].draw();
+                }
+                dodgeBall[i].checkCollision();
+            }
+        }
+        
+        cannon.draw();
+        
+        // draw each board only when it is not hit the second time
+        if((bird1.hit === 0) || (bird1.hit === 1)) {
+            bird1.draw();
+            bird1.state[bird1.currState].execute(bird1);
+        }
+        else if(bird1.hit > 1) {
+            bird1.draw();
+        }
+
+        if((bird2.hit === 0) || (bird2.hit === 1)) {
+            bird2.draw();
+            bird2.state[bird2.currState].execute(bird2);
+        }
+        else if(bird2.hit > 1) {
+            bird2.draw();
+        }
+
+        if((bird3.hit === 0) || (bird3.hit === 1)) {
+            bird3.draw();
+            bird3.state[bird3.currState].execute(bird3);
+        }
+        else if(bird3.hit > 1) {
+            bird3.draw();
+        }
+
+        if((bird4.hit === 0) || (bird4.hit === 1)) {
+            bird4.draw();
+            bird4.state[bird4.currState].execute(bird4);
+        }
+        else if(bird4.hit > 1) {
+            bird4.draw();
+        }
+
+        popMatrix();
+    }
+    else if (startGame === 0) {
+    //show game starting screen
+    //startGame = 0;
+        background(33, 27, 33);
+        bird22.draw();
+        bird22.roam();
+        bird33.draw();
+        bird33.roam();
+        bird44.draw();
+        bird44.roam();
+        bird55.draw();
+        bird55.roam();
+
+        ball22.draw();
+        ball22.roam();
+        textSize(20);
+        text("Heads Up Dodge Ball", 100, 30);
+        text("__________________", 97, 33);
+        textSize(15);
+        text("Theme:  Use the canon to shoot balls at the four birds ", 10,63);
+        text("so that they do not cross the finish line. The canon ", 22,83);
+        text("can shoot once every second. Be careful, the birds can", 22,103);
+        text("dodge balls using their whiskers. ", 22,123);
+        text("Instructions: Use the arrow keys or A and D to move left ", 10,163);
+        text("and right. Press space bar to shoot balls.", 22,183);
+
+    }
+    //game over player win/lost
+    else{
+        background(33, 27, 33);
+        fill(255, 252, 252);
+
+        if (playerWin === 0) {
+            // lose game
+            endBird.draw();
+            fill(255, 252, 252);
+            textSize(40);
+            text("You Lose", 115,170);
+            noStroke();
+            fill(255, 0, 0);
+            ellipse(140,310,40,30);
+            ellipse(260,310,40,30);
+            fill(255, 255, 0);
+            ellipse(150,310,40,30);
+            ellipse(250,310,40,30);
+            fill(78, 242, 56);
+            ellipse(200, 300, 100, 100);
+            fill(255, 0, 0);
+            rect(195,240, 10, 25);
+            fill(255, 153, 0);
+            triangle(200,320,190,305,210,305);
+            fill(0, 0, 0);
+            ellipse(180,290,8,8);
+            ellipse(220,290,8,8);
+
+        }
+        else {
+            // win game
+            textSize(40);
+            text("You Win!!", 115,200);
+            noStroke();
+            fill(255, 0, 0);
+            ellipse(140,310,40,30);
+            ellipse(260,310,40,30);
+            fill(255, 255, 0);
+            ellipse(150,310,40,30);
+            ellipse(250,310,40,30);
+            fill(78, 242, 56);
+            ellipse(200, 300, 100, 100);
+            fill(255, 0, 0);
+            rect(195,240, 10, 25);
+            fill(255, 153, 0);
+            triangle(200,320,190,305,210,305);
+            fill(0, 0, 0);
+            textSize(20);
+            text("X", 175, 295);
+            text("X", 210, 295);
+            
+            // draw fireworks in win game screen 
+            for (var j = 0; j < firework.length; j++) {
+                if (firework[j].step === 0) {
+                    firework[j].position.set(200, 450);
+                    firework[j].target.set(random(100, 300), random(50, 120));
+                    firework[j].direction.set(firework[j].target.x - firework[j].position.x, firework[j].target.y - firework[j].position.y);
+                    var s = random(1, 2) / 100;
+                    firework[j].direction.mult(s);
+                    firework[j].step++;
+                } 
+                else if (firework[j].step === 1) {
+                    firework[j].draw();
+                } 
+                else if (firework[j].step === 2) {
+                    for (var i = 0; i < firework[j].explosions.length; i++) {
+                        firework[j].explosions[i].draw();   
+                    } 
+                    if (firework[j].explosions[0].timer <= 0) {
+                        firework[j].step = 0;   
+                    }
+                }
+            }
+        }
+    }
+};

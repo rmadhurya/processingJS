@@ -1,0 +1,225 @@
+/*
+* Madhu Ratnakar
+* 11/20/2020
+* Video Game Design Project 8: 3D Tables
+* Description: This program is a 3D model of two tables drawn using the wireframe
+*   model. The tables can be rotated by dragging the mouse in a specific direction.
+*   The colors of each vary a bit in shade so that each face can be seen individually.
+*/
+
+// radian mode
+angleMode = 'radians';
+
+// Global Variables
+var backgroundColour = color(226, 245, 222);
+var nodeColour = color(40, 168, 107);
+var edgeColour = color(34, 68, 204);
+var nodeSize = 8;
+
+// creating a rectangular prism funciton -  10 in total
+var createCuboid = function(x, y, z, w, h, d) {
+    var nodes = [[x,   y,   z  ],
+                 [x,   y,   z+d],
+                 [x,   y+h, z  ],
+                 [x,   y+h, z+d],
+                 [x+w, y,   z  ],
+                 [x+w, y,   z+d],
+                 [x+w, y+h, z  ],
+                 [x+w, y+h, z+d]];
+    var edges = [[0, 1], [1, 3], [3, 2], [2, 0],
+                 [4, 5], [5, 7], [7, 6], [6, 4],
+                 [0, 4], [1, 5], [2, 6], [3, 7]];
+    // Added faces for cuboid
+    var faces = [[0, 1, 3, 2],
+                 [1, 5, 7, 3],
+                 [0, 1, 5, 4],
+                 [4, 5, 7, 6],
+                 [0, 4, 6, 2],
+                 [2, 3, 7, 6]];
+    return { 'nodes': nodes, 'edges': edges, 'faces': faces };
+};
+
+// table1 cuboids
+var shape12 = createCuboid(-120, -20, -20, 240, 40, 40);
+var shape15 = createCuboid(-120, -50, -30, -20, 300, 260);
+var shape13 = createCuboid( -120, 190, -20,  240, 40, 40);
+var shape14 = createCuboid( -120, -20, 180,  240, 40, 40);
+var shape11 = createCuboid( -120, 190, 180,  240, 40, 40);
+
+var shapes1 = [shape11, shape12, shape13, shape14, shape15];
+
+
+//table2 cuboids - 350 pixels apart
+var shape22 = createCuboid(-120, -370, -20, 240, 40, 40);
+var shape25 = createCuboid(-120, -400, -30, -20, 300, 260);
+var shape23 = createCuboid( -120, -160, -20,  240, 40, 40);
+var shape24 = createCuboid( -120, -370, 180,  240, 40, 40);
+var shape21 = createCuboid( -120, -160, 180,  240, 40, 40);
+
+var shapes2 = [shape21, shape22, shape24, shape23, shape25];
+
+
+// Rotate shape around the z-axis
+var rotateZ3D = function(theta, nodes) {
+    var sinTheta = sin(radians(theta));
+    var cosTheta = cos(radians(theta));
+
+    for (var n = 0; n < nodes.length; n++) {
+        var node = nodes[n];
+        var x = node[0];
+        var y = node[1];
+        node[0] = x * cosTheta - y * sinTheta;
+        node[1] = y * cosTheta + x * sinTheta;
+    }
+};
+
+// Rotate shape around the y-axis
+var rotateY3D = function(theta, nodes) {
+    var sinTheta = sin(radians(theta));
+    var cosTheta = cos(radians(theta));
+
+    for (var n = 0; n < nodes.length; n++) {
+        var node = nodes[n];
+        var x = node[0];
+        var z = node[2];
+        node[0] = x * cosTheta - z * sinTheta;
+        node[2] = z * cosTheta + x * sinTheta;
+    }
+};
+
+// Rotate shape around the x-axis
+var rotateX3D = function(theta, nodes) {
+    var sinTheta = sin(radians(theta));
+    var cosTheta = cos(radians(theta));
+
+    for (var n = 0; n < nodes.length; n++) {
+        var node = nodes[n];
+        var y = node[1];
+        var z = node[2];
+        node[1] = y * cosTheta - z * sinTheta;
+        node[2] = z * cosTheta + y * sinTheta;
+    }
+};
+
+//rotateZ3D(30);
+//rotateY3D(30);
+//rotateX3D(30);
+
+var dcircle = function(x, y, s, r, b, g, z) {
+    s -= z;
+    var fs = s - z;
+    for(var i = 0; i < s; i ++) {
+        noFill();
+        stroke(r - (i * 1.5 - fs), b - (i * 1.5 - fs), g - (i * 1.5 - fs));
+        //ellipse(x, y, i, i);
+        rect(x,y,i,i);
+    }
+};
+
+var draw= function() {
+    background(backgroundColour);
+    var nodes, edges, faces;
+
+    scale(0.7);
+
+    //table1
+    for (var shapeNum = 0; shapeNum < shapes1.length; shapeNum++) {
+        nodes = shapes1[shapeNum].nodes;
+        edges = shapes1[shapeNum].edges;
+        faces = shapes1[shapeNum].faces;
+        
+        // Draw edges
+        stroke(edgeColour);
+
+        for (var e = 0; e < edges.length; e++) {
+            var n0 = edges[e][0];
+            var n1 = edges[e][1];
+            var node0 = nodes[n0];
+            var node1 = nodes[n1];
+            line(node0[0], node0[1], node1[0], node1[1]);
+        }
+        
+        for (var f = 0; f < faces.length; f++) {
+            var face = faces[f];
+            var n0 = face[0];
+            var n1 = face[1];
+            var n2 = face[2];
+            var n3 = face[3];
+            var node0 = nodes[n0];
+            var node1 = nodes[n1];
+            var node2 = nodes[n2];
+            var node3 = nodes[n3];
+            
+            fill(200+f*15, 134, 93);
+            noStroke();
+            beginShape();
+            vertex(node0[0], node0[1]);
+            vertex(node1[0], node1[1]);
+            vertex(node2[0], node2[1]);
+            vertex(node3[0], node3[1]);
+            endShape();
+        }
+    }
+
+    //table2
+    for (var shapeNum = 0; shapeNum < shapes2.length; shapeNum++) {
+        nodes = shapes2[shapeNum].nodes;
+        edges = shapes2[shapeNum].edges;
+        faces = shapes2[shapeNum].faces;
+        
+        // Draw edges
+        stroke(edgeColour);
+
+        for (var e = 0; e < edges.length; e++) {
+            var n0 = edges[e][0];
+            var n1 = edges[e][1];
+            var node0 = nodes[n0];
+            var node1 = nodes[n1];
+            line(node0[0], node0[1], node1[0], node1[1]);
+        }
+        
+        for (var f = 0; f < faces.length; f++) {
+            var face = faces[f];
+            var n0 = face[0];
+            var n1 = face[1];
+            var n2 = face[2];
+            var n3 = face[3];
+            var node0 = nodes[n0];
+            var node1 = nodes[n1];
+            var node2 = nodes[n2];
+            var node3 = nodes[n3];
+            
+            fill(100+f*15, 134, 193);
+            noStroke();
+            beginShape();
+            vertex(node0[0], node0[1]);
+            vertex(node1[0], node1[1]);
+            vertex(node2[0], node2[1]);
+            vertex(node3[0], node3[1]);
+            endShape();
+        }
+    }
+
+};
+
+mouseDragged = function() {
+    var dx = mouseX - pmouseX;
+    var dy = mouseY - pmouseY;
+
+    //table1
+    for (var shapeNum = 0; shapeNum < shapes1.length; shapeNum++) {
+        var nodes = shapes1[shapeNum].nodes;
+        rotateY3D(dx, nodes);
+        rotateX3D(dy, nodes);
+    }
+    //table2
+    for (var shapeNum = 0; shapeNum < shapes2.length; shapeNum++) {
+        var nodes = shapes2[shapeNum].nodes;
+        rotateY3D(dx, nodes);
+        rotateX3D(dy, nodes);
+    }
+
+};
+
+translate(160, 200);
+rotate(PI/2);

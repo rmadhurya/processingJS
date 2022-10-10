@@ -1,0 +1,978 @@
+/*
+* Madhu Ratnakar
+* 11/6/2020
+* Video Game Design Project 7: PacFruit
+* Animations: 
+*   1) Title Screen:
+*       - Pineapple eyes blinking
+*       - Pineapple and fruitfly move side to side
+*   2) Game Screen
+*       - pineapple moves back when it hits the wall
+*       - uncollected Watermelons flickering
+*       - once watermelon is collected it moves up then dissapears
+*       - A-star path finding for friutflies when their target is the pineapple player every 30 frames
+*       - fruitflies chase player character
+*   3) Game Over Screen
+*       - fruitfly and pineapple move up and down in game lose and game win screen
+*/
+
+angleMode = "radians";
+
+// initialization of tilemap
+var tilemap = [
+        "wwwwwwwwwwwwwwwwwwww",
+        "w     wm   w      mw",
+        "w www w ww w wwwww w",
+        "wm w    w  w  m    w",
+        "ww w ww w ww w w w w",
+        "w  w         w w w w",
+        "w ww www w w w w w w",
+        "w      w w w     w w",
+        "w wwww w     www w w",
+        "w wm   w www       w",
+        "w w ww wm    w ww ww",
+        "w        w w w     w",
+        "w ww www w w w www w",
+        "w            w     w",
+        "w wwww ww ww w wwm w",
+        "w      w        ww w",
+        "w w w ww wwmw w    w",
+        "w w w w   w w wwww w",
+        "wp  w  mw   w     mw",
+        "wwwwwwwwwwwwwwwwwwww"];
+
+// Watermelon object decalaration
+var melonObj = function(x, y) {
+    this.x = x;
+    this.y = y;
+    this.angle = 0;
+    this.w = 20;
+    this.wDir = -1;
+    this.collected = 0;
+    this.count = 0;
+    this.speed = 3;
+};
+
+// pineapple player object decalaration
+var playerObj = function(x, y) {
+    this.x = x;
+    this.y = y;
+    this.speed = 1;
+    this.fcost = 0;
+};
+
+playerObj.prototype.set = function(a, b) {
+    this.x = a;
+    this.y = b;
+};
+
+var haltState = function() {
+    this.angle = 0;
+};
+
+var turnState = function() {
+    this.angle = 0;
+    this.angleDir = 0;
+    this.vec = new PVector(0,0);
+};
+
+var chaseState = function() {
+    this.step = new PVector(0,0);
+};
+
+// game fruitfly object decalaration
+var fruitflyObj = function(x, y) {
+    this.position = new PVector(x, y);
+    this.state = [new haltState(), new turnState(), new chaseState()];
+    this.currState = 0;
+    this.angle = 0;
+    this.whisker1 = new PVector(0, 0);
+    this.whisker2 = new PVector(0, 0);
+};
+
+// game title screen/ game over fruitfly object decalaration
+var fruitfly1Obj = function(x, y, n) {
+    this.x = x;
+    this.y = y;
+    this.speed = 1;
+    this.name = n;
+    this.direction = 0;
+};
+
+// wall object declaration
+var wallObj = function(x, y) {
+    this.x = x;
+    this.y = y;
+};
+
+// pineapple object declaration
+var pineappleObj = function(x,y) {
+    this.x = x;
+    this.y = y;
+};
+
+// pineapple object declaration
+var dummyPlayerObj = function(x, y) {
+    this.x = x;
+    this.y = y;
+};
+
+// Global Variable definitions
+var wall = [];
+var melon  = [];//new melonObj(0, 0);
+var player  = [];//new playerObj(0, 0);
+var dummyPlayer = [];  //needed same from above to be drawn on starting page
+//var fruitfly  = [];//new fruitflyObj(0, 0);
+var fruitfly1 = []; //needed same from above to be drawn on starting page
+var images = [];
+var pineapple = [];
+var customCharMade = 0;
+var start = 0;
+var fruitflyCount = 0;
+var keyArray = [];
+var wallCheck = 0;
+var wallCheckLeft = 0;
+var wallCheckRight = 0;
+var wallCheckTop = 0;
+var wallCheckBottom = 0;
+var gameOver = 0;
+var score = 0;
+var blink = 0;
+var playerwin = 0;
+var dummyDir = 1;
+var flyDir = 1;
+var fruitfly = [new fruitflyObj(200, 110), new fruitflyObj(300, 370), new fruitflyObj(300, 150), new fruitflyObj(50, 90)];
+var framesElapsed = 0;
+
+var graph = new Array(20);
+var cost = new Array(20);
+var inq = new Array(20);
+var comefrom = new Array(20);
+for (var i=0; i<20; i++) {
+    graph[i] = new Array(20);
+    cost[i] = new Array(20);
+    inq[i] = new Array(20);
+    comefrom[i] = new Array(20);
+}
+var path = [];
+var q = [];
+for (var i=0; i<400; i++) {
+    path.push(new PVector(0, 0));
+    q.push(new playerObj(0, 0)); 
+}
+for (i=0; i<20; i++) {
+    for(var j=0; j<20; j++) {
+        comefrom[i][j] = new PVector(0, 0);
+    }
+}
+var pathLen = 0;
+var pathFound = 0;
+var qLen = 0;
+var qStart = 0;
+
+var initPath = function() {
+    graph = new Array(20);
+    cost = new Array(20);
+    inq = new Array(20);
+    comefrom = new Array(20);
+    for (var i=0; i<20; i++) {
+        graph[i] = new Array(20);
+        cost[i] = new Array(20);
+        inq[i] = new Array(20);
+        comefrom[i] = new Array(20);
+    }
+    path = [];
+    q = [];
+    for (var i=0; i<400; i++) {
+        path.push(new PVector(0, 0));
+        q.push(new playerObj(0, 0)); 
+    }
+    for (i=0; i<20; i++) {
+        for(var j=0; j<20; j++) {
+            comefrom[i][j] = new PVector(0, 0);
+        }
+    }
+    pathLen = 0;
+    pathFound = 0;
+    qLen = 0;
+    qStart = 0;
+};
+
+// drawing custom character for the brick wall
+var customChar = function() {
+    customCharMade = 1;
+    background(255, 255, 255);
+    fill(161, 24, 24);
+    rect (0,0,400,400);
+    strokeWeight(20);
+    line(0,0,400,0);
+    line(0,100,400,100);
+    line(0,200,400,200);
+    line(0,300,400,300);
+    line(200,0,200,100);
+    line(0,400,400,400);
+    line(100,100,100,200);
+    line(300,100,300,200);
+    line(200,200,200,300);
+    line(200,200,200,300);
+    line(100,300,100,400);
+    line(300,300,300,400);
+    images.push(get(0,0,width,height));
+};
+
+
+
+// Drawing watermelon object
+melonObj.prototype.draw = function() {
+    noStroke();
+    fill(24, 247, 8);
+    ellipse(this.x, this.y, this.w, 15);
+    fill(13, 128, 5);
+    ellipse(this.x, this.y, this.w, 10);
+    fill(24, 247, 8);
+    ellipse(this.x, this.y, this.w, 3);
+    this.w += this.wDir;
+    // used this to flicker watermelons back and forth
+    if ((this.w > 20) || (this.w < 18)) {
+        this.wDir = -this.wDir;
+    }
+};
+
+// Move up and dissappear when watermelon is collected
+melonObj.prototype.move = function() {
+    if (this.collected === 1) {
+        this.y-=this.speed;
+        this.count++;
+    }
+    if(this.count === 20) {
+        this.collected = 2;
+    }
+};
+
+// used for title screen
+playerObj.prototype.draw = function() {
+    noStroke();
+    fill(230, 213, 25);
+    ellipse(this.x, this.y, 18, 18);
+    strokeWeight(4);
+    stroke(61, 191, 70);
+    line(this.x, this.y-10, this.x, this.y-5);
+    line(this.x-5, this.y-10, this.x, this.y-5);
+    line(this.x+5, this.y-10, this.x, this.y-5);
+};
+
+// used for game over screen
+dummyPlayerObj.prototype.draw = function() {
+    noStroke();
+    fill(230, 213, 25);
+    ellipse(this.x, this.y, 18, 18);
+    strokeWeight(4);
+    stroke(61, 191, 70);
+    line(this.x, this.y-10, this.x, this.y-5);
+    line(this.x-5, this.y-10, this.x, this.y-5);
+    line(this.x+5, this.y-10, this.x, this.y-5);
+};
+
+// move side to side on title screen
+dummyPlayerObj.prototype.move = function() {
+    //move function of the dummyPlayer
+    //on the starting page
+    if (start === 0) {
+        this.x = this.x + 5 * dummyDir;
+        if (this.x === 380){
+            dummyDir = -1;
+        } else if (this.x === 150) {
+            dummyDir = 1;
+        }
+    }
+    else {
+        this.y = this.y + 5 * dummyDir;
+        if (this.y === 300){
+            dummyDir = -1;
+        } else if (this.y === 50) {
+            dummyDir = 1;
+    }
+    }
+};
+
+// move side to side on title screen
+fruitfly1Obj.prototype.move = function() {
+    //move function of the dummyPlayer
+    //on the starting page
+    if (start ===0) {
+        this.x = this.x + 5 * flyDir;
+        if (this.x === 380){
+            flyDir = -1;
+        } else if (this.x === 150) {
+            flyDir = 1;
+        }
+    } else {
+        this.y = this.y + 5 * flyDir;
+        if (this.y === 300){
+            flyDir = -1;
+        } else if (this.y === 50) {
+            flyDir = 1;
+        }
+    }
+};
+
+// move function for pineapple player
+playerObj.prototype.move = function() {
+    if (start ===0) {
+    //
+    // move the player all around the screen before the
+    // game is started
+    //
+        this.x = this.x + 5;
+        this.y = this.y + 5;
+    }
+    else {
+
+        //check for collison with the wall
+        for (var i=0; i<wall.length; i++) {
+            //
+            //from this.x and this.y check for walls on all four sides
+            //by checking the distance between wall and player
+            //
+            var wallx = wall[i].x + 10;
+            var wally = wall[i].y + 10;
+            if (dist(this.x, this.y, wallx, wally) <= 15)  {
+                //
+                //looks like wall exists on one or more sides
+                //now check for which side it actually is
+                //
+                if (dist(this.x - 20, this.y,wallx, wally) <= 15) {
+                    wallCheckLeft = 1;
+                }
+                if (dist(this.x + 20, this.y,wallx, wally) <= 15) {
+                    wallCheckRight = 1;
+                }
+                if (dist(this.x, this.y - 20,wallx, wally) <= 15) {
+                    wallCheckTop = 1;
+                }
+                if (dist(this.x, this.y + 20,wallx, wally) <= 15) {
+                    wallCheckBottom = 1;
+                }
+            }
+        }
+        // arrow key checks and move
+        if (keyArray[LEFT] === 1) {
+            if (wallCheckLeft === 0) {
+                this.x -= this.speed;
+            }
+            else {
+                this.x = this.x + 5;
+            }
+        }
+        if (keyArray[RIGHT] === 1) {
+            if (wallCheckRight === 0) {
+                this.x += this.speed;
+            }
+            else {
+                this.x = this.x -5;
+            }
+        }
+        if (keyArray[UP] === 1) {
+            if (wallCheckTop === 0) {
+                this.y -= this.speed;
+            }
+            else {
+                this.y = this.y + 5;
+            }
+        }
+        if (keyArray[DOWN] === 1) {
+            if (wallCheckBottom === 0) {
+                this.y += this.speed;
+            }
+            else {
+                this.y = this.y -5;
+            }
+        }
+        for (var i=0; i<melon.length; i++) {
+            if (dist(this.x, this.y, melon[i].x, melon[i].y) <= 8)  {
+                if(melon[i].collected === 0){
+                    melon[i].collected = 1;
+                    score++;
+                    //if score is 20, all the water melons are saved
+                    // declare winner and close the game
+                    if(score === 10) {
+                        gameOver = 1;
+                        playerwin = 1;
+                    }
+                }
+            }
+        }
+        wallCheckLeft = 0;
+        wallCheckRight = 0;
+        wallCheckTop = 0;
+        wallCheckBottom = 0;
+        //
+        //check for player hitting the fruitfly, if so.. game over..
+        //
+        // TODO: for p7 fix collision
+        for (var i=0; i<fruitfly.length; i++) {
+            if (dist(this.x, this.y, fruitfly[i].position.x, fruitfly[i].position.y) <= 10)  {
+                gameOver = 1;
+            }
+        }
+    }
+};
+
+// draw starting screen fruit fly
+fruitflyObj.prototype.draw = function() {
+    pushMatrix();
+    translate(this.position.x, this.position.y);
+    noStroke();
+    rotate(this.angle+90);
+    fill(193, 242, 245);
+    ellipse(this.x-8, this.y, 20, 4);
+    fill(0, 0, 0);
+    ellipse(this.x, this.y, 12, 12);
+    popMatrix();
+};
+
+// draw ending screen fruit fly
+fruitfly1Obj.prototype.draw = function() {
+    noStroke();
+    fill(0, 0, 0);
+    ellipse(this.x, this.y, 12, 12);
+    fill(193, 242, 245);
+    ellipse(this.x-8, this.y, 4, 4);
+    ellipse(this.x+8, this.y, 4, 4);
+};
+
+// draw custom wall image
+wallObj.prototype.draw = function() {
+    image(images[0], this.x, this.y, 20, 20);
+};
+
+var keyPressed = function() {
+    keyArray[keyCode] = 1;
+};
+
+var keyReleased = function() {
+    keyArray[keyCode] = 0;
+};
+
+// gameover screen graphics
+var pineappleFinal = function() {
+    point(200,180);
+    strokeWeight(4);
+    stroke(255, 179, 0);
+    fill(255, 225, 0);
+    ellipse(200, 181, 120, 150);
+    stroke(255, 179, 0);
+    line(177, 250, 250, 143);
+    line(145, 210, 220, 115);
+    line(225, 250, 149, 145);
+    line(251, 220, 170, 115);
+    fill(12, 191, 6);
+    stroke(25, 145, 16);
+    ellipse(200, 80, 20, 70);
+    ellipse(180, 85, 20, 60);
+    ellipse(220, 85, 20, 60);
+
+    noStroke();
+    fill(0, 0, 0);
+    ellipse(180, 170, 10, 10);
+    ellipse(220, 170, 10, 10);
+    if (playerwin ===1) {
+        // happy mouth
+        arc(200, 190, 20, 20, 0, PI);
+    }
+    else {
+        // sad mouth
+        arc(200, 200, 20, 20, PI, 2*PI);
+    }
+
+    fill(240, 152, 240);
+    ellipse(170, 185, 15, 15);
+    ellipse(230, 185, 15, 15);
+
+};
+
+// starting title screen graphics
+var pineappleStartScreen = function() {
+    background(187, 85, 235);
+    //border
+    rect(0,0,10,400);
+    rect(0,0,400,10);
+    rect(0,390,400,400);
+    rect(390,10,400,400);
+
+    fill(49, 15, 135);
+
+    textSize(20);
+    text("PacFruit", 165, 40);
+    text("_______", 163,45);
+    textSize(16);
+    text("Instructions:", 20, 80);
+    textSize(14);
+    text("Help Mr.Pineapple collect all his watermelon friends from", 20, 110);
+    text("the nasty fruit flies. Rescue all 10 watermelons without", 24, 130);
+    text("bumping into the Fruit flies to win!", 100, 150);
+
+    strokeWeight(4);
+    stroke(255, 179, 0);
+    fill(255, 225, 0);
+    ellipse(100, 300, 120, 150);
+    stroke(255, 179, 0);
+    line(60, 250, 158, 300);
+    line(41, 300, 142, 350);
+    line(132, 240, 51, 340);
+    line(155, 275, 77, 370);
+    fill(12, 191, 6);
+    stroke(25, 145, 16);
+    ellipse(100, 200, 20, 70);
+    ellipse(80, 205, 20, 60);
+    ellipse(120, 205, 20, 60);
+
+    noStroke();
+    fill(0, 0, 0);
+    if (blink <= 25) {
+        ellipse(80, 290, 10, 10);
+        ellipse(120, 290, 10, 10);
+        blink++;
+    } else {
+        blink = 0;
+    }
+    arc(100, 310, 20, 20, 0, PI);
+    fill(240, 152, 240);
+    ellipse(70, 310, 15, 15);
+    ellipse(130, 310, 15, 15);
+
+    fill(250, 250, 250);
+    ellipse(270, 250, 210, 100);
+    triangle(270,270,250,320,310,270);
+    fill(49, 15, 135);
+    textSize(20);
+    text("Click mouse to start", 180, 255);
+
+};
+
+// Initialize tile map
+var initTilemap = function() {
+    for (var i = 0; i< tilemap.length; i++) {
+        for (var j =0; j < tilemap[i].length; j++) {
+            switch (tilemap[i][j]) {
+                case 'w': wall.push(new wallObj(j*20, i*20));
+                    break;
+                case 'm': melon.push(new melonObj(j*20+10, i*20+10));
+                    break;
+                case 'p': player.push(new playerObj(j*20+10, i*20+10));
+                    break;
+            }
+            if (tilemap[i][j] === 'w') {
+                graph[i][j] = -1;
+            }
+            else {
+                graph[i][j] = 0;
+            }
+        }
+    }
+    //init the starting page objects as well
+    dummyPlayer.push(new dummyPlayerObj(180, 340));
+    dummyPlayer.push(new dummyPlayerObj(70, 180));
+    fruitfly1.push(new fruitfly1Obj(340, 180));
+    fruitfly1.push(new fruitfly1Obj(340, 180));
+};
+
+// proj 7 code HERE
+
+var targetObj = function(x, y) {
+    this.x = x;
+    this.y = y;
+};
+
+var target = new targetObj(0, 0);
+var targetPos = new targetObj(0, 0);
+var finalDest = new targetObj(0, 0);
+
+fruitflyObj.prototype.changeState = function(x) {
+    this.currState = x;
+};
+
+haltState.prototype.execute = function(me) {
+    
+    if (dist(me.position.x, me.position.y, target.x, target.y) < 5) {
+        me.changeState(1);
+    }
+};
+
+turnState.prototype.execute = function(me) {
+    this.vec.set(target.x - me.position.x, target.y - me.position.y);
+    this.angle = this.vec.heading();
+    var angleDiff = abs(this.angle - me.angle);
+    if (angleDiff > 2) {
+        if (this.angle > me.angle) {
+            this.angleDir = 1;
+        }
+        else {
+            this.angleDir = -1;
+        }
+        if (angleDiff > 180) {
+            this.angleDir = -this.angleDir;
+        }
+        
+        me.angle += this.angleDir;
+        if (me.angle > 180) {
+            me.angle = -179;
+        }
+        else if (me.angle < -180) {
+            me.angle = 179;
+        }
+    }
+    else {
+        me.changeState(2);
+    }
+};
+
+fruitflyObj.prototype.findIntersection = function(p) {
+    var distance = 0;
+    
+    for (var i=0; i<wall.length; i++) {
+        var d = dist(p.x, p.y, wall[i].x+10, wall[i].y+10);
+        if (d < 20) {
+            distance += d;
+        }
+    }
+    
+    if (distance === 0) {
+        distance = 100000;
+    }
+    
+    return(distance);
+};
+
+chaseState.prototype.collideWall = function(me) {
+    var collide = 0;
+    this.step.set(target.x - me.position.x, target.y - me.position.y);
+    this.step.normalize();
+    this.step.mult(15);
+    var ahead = PVector.add(me.position, this.step);
+    for (var i=0; i<wall.length; i++) {
+        // TODO: i change if condition from "< 20" to "< 10"
+        if (dist(ahead.x, ahead.y, wall[i].x+10, wall[i].y+10) < 10) { 
+            collide = 1;
+            
+            me.whisker1.set(this.step.x, this.step.y);
+            me.whisker2.set(this.step.x, this.step.y);
+            me.whisker1.rotate(45);
+            me.whisker2.rotate(-45);
+            me.whisker1.add(me.position);
+            me.whisker2.add(me.position);
+            var dist1 = me.findIntersection(me.whisker1);
+            var dist2 = me.findIntersection(me.whisker2);
+            
+            if (dist1 > dist2) {
+                target.x = me.whisker1.x;
+                target.y = me.whisker1.y;
+            }
+            else {
+                target.x = me.whisker2.x;
+                target.y = me.whisker2.y;
+            }
+        }
+    }
+    
+    return(collide);
+};
+
+chaseState.prototype.execute = function(me) {
+    if (this.collideWall(me) === 1) {
+        me.changeState(1);
+    }
+    else if (dist(target.x, target.y, me.position.x, me.position.y) > 2) {
+        this.step.set(target.x - me.position.x, target.y - me.position.y);
+        this.step.normalize();
+        me.position.add(this.step);
+    }
+    else {
+        if ((finalDest.x === target.x) && (finalDest.y === target.y)) {
+            me.changeState(0);
+        }
+        else {
+            pathLen--;
+            if (pathLen > 0) {
+                target.x = path[pathLen].x;
+                target.y = path[pathLen].y;
+            }
+            else {
+                target.x = finalDest.x;
+                target.y = finalDest.y;
+            }
+            me.changeState(1);
+        }
+    }
+};
+
+fruitflyObj.prototype.initGraph = function(x, y) {
+    for (var i = 0; i< 20; i++) {
+        for (var j = 0; j<20; j++) {
+            if (graph[i][j] > 0) {
+                graph[i][j] = 0;
+            }
+            inq[i][j] = 0;
+            cost[i][j] = 0;
+        }
+    }
+    
+    graph[x][y] = 1;
+};
+
+fruitflyObj.prototype.findAStarPath = function(x, y) {
+    var i, j, a, b;
+    qLen = 0;
+    graph[x][y] = 1;
+    inq[x][y] = 1;
+    q[qLen].set(x, y);
+    q[qLen].fcost = 0;
+    qLen++;
+    pathLen = 0;
+    qStart = 0;
+    
+    var findMinInQ = function() {
+        var min = q[qStart].fcost;
+        var minIndex = qStart;
+        for (var i = qStart+1; i<qLen; i++) {
+            if (q[i].fcost < min) {
+                min = q[i].qStart;
+                minIndex = i;
+            }
+        }
+        if (minIndex !== qStart) {  // swap
+            var t1 = q[minIndex].x;
+            var t2 = q[minIndex].y;
+            var t3 = q[minIndex].fcost;
+            q[minIndex].x = q[qStart].x;
+            q[minIndex].y = q[qStart].y;
+            q[minIndex].fcost = q[qStart].fcost;
+            q[qStart].x = t1;
+            q[qStart].y = t2;
+            q[qStart].fcost = t3;
+        }
+    };
+    
+    while ((qStart < qLen) && (pathFound === 0)) {
+	findMinInQ();
+        i = q[qStart].x;
+        j = q[qStart].y;
+        graph[i][j] = 1;
+        qStart++;
+        
+        if ((i === targetPos.x) && (j === targetPos.y)) {
+            pathFound = 1;
+            path[pathLen].set(j*20+10, i*20+10);
+            pathLen++;
+        }
+        
+        a = i+1;
+        b = j;
+        if ((a < 20) && (pathFound === 0)) {
+            if ((graph[a][b] === 0) && (inq[a][b] === 0)) {
+                inq[a][b] = 1;
+                comefrom[a][b].set(i, j);
+                q[qLen].set(a, b);
+                cost[a][b] = cost[i][j] + 10;
+                q[qLen].fcost = cost[a][b] + dist(b*20+10, a*20+10,
+finalDest.x, finalDest.y);
+                qLen++;
+            }
+        }
+        a = i-1;
+        b = j;
+        if ((a >= 0) && (pathFound === 0)) {
+            if ((graph[a][b] === 0) && (inq[a][b] === 0)) {
+                inq[a][b] = 1;
+                comefrom[a][b].set(i, j);
+                q[qLen].set(a, b);
+                cost[a][b] = cost[i][j] + 10;
+                q[qLen].fcost = cost[a][b] + dist(b*20+10, a*20+10,
+finalDest.x, finalDest.y);
+                qLen++;
+            }
+        }
+        a = i;
+        b = j+1;
+        if ((b < 20) && (pathFound === 0)) {
+            if ((graph[a][b] === 0) && (inq[a][b] === 0)) {
+                inq[a][b] = 1;
+                comefrom[a][b].set(i, j);
+                q[qLen].set(a, b);
+                cost[a][b] = cost[i][j] + 10;
+                q[qLen].fcost = cost[a][b] + dist(b*20+10, a*20+10,
+finalDest.x, finalDest.y);
+                qLen++;
+            }
+        }
+        a = i;
+        b = j-1;
+        if ((b >= 0) && (pathFound === 0)) {
+            if ((graph[a][b] === 0) && (inq[a][b] === 0)) {
+                inq[a][b] = 1;
+                comefrom[a][b].set(i, j);
+                q[qLen].set(a, b);
+                cost[a][b] = cost[i][j] + 10;
+                q[qLen].fcost = cost[a][b] + dist(b*20+10, a*20+10,
+finalDest.x, finalDest.y);
+                qLen++;
+            }
+        }
+    }   // while
+    
+    while ((i !== x) || (j !== y)) {
+        a = comefrom[i][j].x;
+        b = comefrom[i][j].y;
+        path[pathLen].set(b*20 + 10, a*20+10);
+        pathLen++;
+        i = a;
+        j = b;
+    }
+};
+
+fruitflyObj.prototype.move = function() {
+    target.x = player[0].x;
+    target.y = player[0].y;
+    finalDest.x = target.x;
+    finalDest.y = target.y;
+    targetPos.x = floor(finalDest.y / 20);
+    targetPos.y = floor(finalDest.x / 20);
+    var i = floor(this.position.y / 20);
+    var j = floor(this.position.x / 20);
+    this.initGraph(i, j);
+    pathFound = 0;
+    pathLen = 0;
+    this.findAStarPath(i, j);
+    pathLen--;
+    target.x = path[pathLen].x;
+    target.y = path[pathLen].y;
+    if (this.currState !== 1) {
+        this.changeState(1);
+    }
+};
+
+// mouse click used at start of game
+var mouseClicked = function() {
+    start = 1;
+};
+
+// initialize tile map call
+initTilemap();
+
+// main draw function
+var draw = function() {
+    
+    if((start === 1) && (gameOver === 0)) {
+        background(131, 66, 184);
+        framesElapsed++;
+        for (var i=0; i<wall.length; i++) {
+                wall[i].draw();
+        }
+        for (i=0; i<melon.length; i++) {
+            if(melon[i].collected === 0) {
+                melon[i].draw();
+            }
+            else if (melon[i].collected === 1) {
+                melon[i].draw();
+                melon[i].move();
+            }
+        }
+        for (i=0; i<player.length; i++) {
+            player[i].draw();
+            player[i].move();
+        }
+        fill(210, 166, 245);
+        textSize(25);
+        
+        for(i=0; i<fruitfly.length; i++) {
+            fruitfly[i].draw();
+            fruitfly[i].state[fruitfly[i].currState].execute(fruitfly[i]);
+        }
+        
+        if (framesElapsed === 30) {
+            fruitfly[0].move();
+            //initPath();
+        }
+        if (framesElapsed === 60) {
+            fruitfly[1].move();
+            //initPath();
+            framesElapsed = 0;
+        }
+        if (framesElapsed === 90) {
+            fruitfly[2].move();
+            fruitfly[3].move();
+            //framesElapsed = 0;
+            //initPath();
+        }
+        fill(255, 255, 255);
+        //text("Steps left: " + pathLen, 200, 101);
+
+        textSize(14);
+        text("Score: " + score, 320, 15);
+    }
+    else if (gameOver === 1) {
+    //
+    //show game over screen
+    //
+    //checking for player win or lose
+
+        if (playerwin ===1) {
+            //player won the game
+
+            fill(123, 30, 230);
+            rect(20, 20, 360, 360);
+            fill(12, 20, 130);
+            textSize(45);
+            text("You Win !", 100, 300);
+            textSize(15);
+            text("You saved all of Mr. Pineapple's Watermelon Friends!!", 25,325);
+            textSize(20);
+            text("Press Restart to play again!!", 70,350);
+            //draw the happy pineapple
+            pineappleFinal();
+            dummyPlayer[1].draw();
+            dummyPlayer[1].move();
+            fruitfly1[1].draw();
+            fruitfly1[1].move();
+        }
+        else {
+            //player lost the game
+            //
+            //show graphics loop
+            //
+            pineappleFinal();
+            rect(0,0,10,400);
+            rect(0,0,400,10);
+            rect(0,390,400,400);
+            rect(390,10,400,400);
+
+            fill(232, 16, 90);
+            rect(20, 20, 360, 360);
+            fill(30, 26, 33);
+            text("Game Over..You Lose !", 90, 300);
+            textSize(18);
+            text("Please save Mr. Pineapple's Friends,",50,320);
+            text("the Water Melons, from the Fruit Flies..", 45,340);
+            textSize(20);
+            text("Press Restart to play again",70,370);
+            //
+            //game lost.. draw the sad pineapple
+            //
+            pineappleFinal();
+            dummyPlayer[1].draw();
+            dummyPlayer[1].move();
+            fruitfly1[1].draw();
+            fruitfly1[1].move();
+        }
+    }
+    else {
+        if (customCharMade === 0) {
+            customChar();
+        }
+        pineappleStartScreen();
+        dummyPlayer[0].draw();
+        dummyPlayer[0].move();
+        fruitfly1[0].draw();
+        fruitfly1[0].move();
+    }
+};
